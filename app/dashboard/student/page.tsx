@@ -479,6 +479,22 @@ export default function StudentDashboard() {
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">{rec.module.title}</h3>
                             <p className="text-sm text-gray-600 mb-3">{rec.course.title}</p>
                             <p className="text-sm text-gray-700 mb-3">{rec.reasoning}</p>
+                            
+                            {/* Learning Strategies */}
+                            {rec.learningStrategies && rec.learningStrategies.length > 0 && (
+                              <div className="mb-4">
+                                <h4 className="text-sm font-semibold text-gray-900 mb-2">AI-Powered Learning Strategies:</h4>
+                                <ul className="space-y-1">
+                                  {rec.learningStrategies.map((strategy: string, idx: number) => (
+                                    <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                                      <span className="text-blue-600 mt-1">•</span>
+                                      <span>{strategy}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            
                             <button
                               onClick={() => router.push(`/dashboard/courses/${rec.course._id}`)}
                               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200"
@@ -533,39 +549,85 @@ export default function StudentDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {recommendations.map((rec) => (
-                  <div key={rec._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                        rec.priority === 'high' 
-                          ? 'bg-red-100 text-red-700 border border-red-200' 
-                          : rec.priority === 'medium'
-                          ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                          : 'bg-green-100 text-green-700 border border-green-200'
-                      }`}>
-                        {rec.priority} priority
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-700 mb-3">{rec.reasoning}</p>
-                    <div className="space-y-2">
-                      {rec.suggestedModules.map((module: any, index: number) => (
-                        <div key={module._id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm text-gray-900">{module.title}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-gray-600">{module.difficulty}</span>
-                              <span className="text-xs text-gray-400">•</span>
-                              <span className="text-xs text-gray-600">{module.type}</span>
-                            </div>
-                          </div>
-                          <button className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200">
-                            Start
-                          </button>
+                {recommendations.map((rec, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
+                    {rec.type === 'failed-assessment' && (
+                      <>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                            Failed Assessment
+                          </span>
+                          <span className="text-sm text-gray-600">
+                            Score: {rec.score}%
+                          </span>
                         </div>
-                      ))}
-                    </div>
+                        <h3 className="text-sm font-semibold text-gray-900 mb-1">{rec.module.title}</h3>
+                        <p className="text-xs text-gray-600 mb-2">{rec.course.title}</p>
+                        <p className="text-xs text-gray-700 mb-3">{rec.reasoning}</p>
+                        
+                        {/* Learning Strategies */}
+                        {rec.learningStrategies && rec.learningStrategies.length > 0 && (
+                          <div className="mb-3">
+                            <h4 className="text-xs font-semibold text-gray-900 mb-2">Learning Strategies:</h4>
+                            <ul className="space-y-1">
+                              {rec.learningStrategies.slice(0, 3).map((strategy: string, sIdx: number) => (
+                                <li key={sIdx} className="text-xs text-gray-700 flex items-start gap-2">
+                                  <span className="text-blue-600 mt-0.5">•</span>
+                                  <span>{strategy}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        <button
+                          onClick={() => router.push(`/dashboard/courses/${rec.course._id}`)}
+                          className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all duration-200"
+                        >
+                          Retry Module
+                        </button>
+                      </>
+                    )}
+                    {rec.type === 'ai-recommendation' && (
+                      <>
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                            rec.priority === 'high' 
+                              ? 'bg-red-100 text-red-700 border border-red-200' 
+                              : rec.priority === 'medium'
+                              ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                              : 'bg-green-100 text-green-700 border border-green-200'
+                          }`}>
+                            {rec.priority} priority
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-700 mb-3">{rec.reasoning}</p>
+                        <div className="space-y-2">
+                          {rec.modules && rec.modules.map((module: any, mIdx: number) => (
+                            <div key={mIdx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
+                              <div className="flex-1">
+                                <p className="font-medium text-sm text-gray-900">{module.title}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <span className="text-xs text-gray-600">{module.difficulty}</span>
+                                  <span className="text-xs text-gray-400">•</span>
+                                  <span className="text-xs text-gray-600">{module.type}</span>
+                                </div>
+                              </div>
+                              <button className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200">
+                                Start
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))}
+                {recommendations.length === 0 && (
+                  <p className="text-sm text-gray-600 text-center py-4">
+                    No recommendations yet. Keep learning!
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>

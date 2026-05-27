@@ -40,15 +40,70 @@ export async function GET(request: NextRequest) {
         .populate('moduleId', 'title difficulty type courseId order')
         .populate('courseId', 'title category');
       
-      const failedRecommendations = failedProgress.map((p: any) => ({
-        type: 'failed-assessment',
-        module: p.moduleId,
-        course: p.courseId,
-        score: p.score,
-        reasoning: `You scored ${p.score}% on this module. Review and retry to improve your understanding.`,
-        priority: 'high',
-        createdAt: p.completedAt,
-      }));
+      const failedRecommendations = failedProgress.map((p: any) => {
+        const score = p.score;
+        const module = p.moduleId;
+        const course = p.courseId;
+        
+        // AI-powered reasoning based on score and difficulty
+        let reasoning = '';
+        let learningStrategies: string[] = [];
+        
+        if (score < 40) {
+          reasoning = `You scored ${score}% on "${module.title}". This indicates significant gaps in understanding. Focus on mastering the fundamentals before progressing.`;
+          learningStrategies = [
+            'Review the module content from the beginning',
+            'Take detailed notes while studying',
+            'Practice with additional exercises',
+            'Consider seeking help from instructor or peers',
+            'Break down complex topics into smaller parts'
+          ];
+        } else if (score < 60) {
+          reasoning = `You scored ${score}% on "${module.title}". You have a basic understanding but need to deepen your knowledge to pass the assessment.`;
+          learningStrategies = [
+            'Focus on areas where you lost points',
+            'Review the module content again',
+            'Practice with similar problems',
+            'Test yourself with practice questions',
+            'Connect concepts to real-world examples'
+          ];
+        }
+        
+        // Add difficulty-specific strategies
+        if (module.difficulty === 'beginner') {
+          learningStrategies.push('Start with foundational concepts');
+          learningStrategies.push('Use visual aids and diagrams');
+        } else if (module.difficulty === 'intermediate') {
+          learningStrategies.push('Apply concepts to practical scenarios');
+          learningStrategies.push('Work on hands-on projects');
+        } else if (module.difficulty === 'advanced') {
+          learningStrategies.push('Engage in critical thinking exercises');
+          learningStrategies.push('Collaborate with peers for discussions');
+        }
+        
+        // Add type-specific strategies
+        if (module.type === 'video') {
+          learningStrategies.push('Watch videos at 0.75x speed for better comprehension');
+          learningStrategies.push('Pause and take notes frequently');
+        } else if (module.type === 'reading') {
+          learningStrategies.push('Read actively with questions in mind');
+          learningStrategies.push('Summarize each section in your own words');
+        } else if (module.type === 'interactive') {
+          learningStrategies.push('Complete all interactive exercises');
+          learningStrategies.push('Experiment with different approaches');
+        }
+        
+        return {
+          type: 'failed-assessment',
+          module: p.moduleId,
+          course: p.courseId,
+          score: p.score,
+          reasoning,
+          learningStrategies,
+          priority: 'high',
+          createdAt: p.completedAt,
+        };
+      });
       
       recommendations = [...recommendations, ...failedRecommendations];
     }

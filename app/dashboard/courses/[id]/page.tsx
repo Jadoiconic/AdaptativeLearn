@@ -225,6 +225,27 @@ export default function CourseDetailPage() {
         }),
       });
 
+      // If failed, create AI recommendation for the module
+      if (score < currentAssessment.passingScore) {
+        try {
+          await fetch('/api/recommendations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: session?.user?.id,
+              suggestedModules: [selectedModule._id],
+              reasoning: `You scored ${score}% on "${selectedModule.title}". Review the module content and try the assessment again to improve your understanding.`,
+              priority: 'high',
+            }),
+          });
+        } catch (error) {
+          console.error('Error creating AI recommendation:', error);
+          // Don't fail the submission if recommendation creation fails
+        }
+      }
+
       // Refresh progress
       fetchProgress();
       fetchModules();
