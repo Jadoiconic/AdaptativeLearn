@@ -182,3 +182,161 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// ======================
+// UPDATE COURSE
+// ======================
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (session.user.role !== 'instructor' && session.user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Only instructors and admins can update courses' },
+        { status: 403 }
+      );
+    }
+
+    await connectDB();
+
+    const { courseId, title, description, category, difficulty, duration, price, thumbnail, objectives, requirements, isPublished } = await request.json();
+
+    if (!courseId) {
+      return NextResponse.json(
+        { success: false, error: 'Course ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const course = await CourseModel.findById(courseId);
+
+    if (!course) {
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check ownership
+    if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized to update this course' },
+        { status: 403 }
+      );
+    }
+
+    // Update course
+    const updatedCourse = await CourseModel.findByIdAndUpdate(
+      courseId,
+      {
+        title: title || course.title,
+        description: description || course.description,
+        category: category || course.category,
+        difficulty: difficulty || course.difficulty,
+        duration: duration || course.duration,
+        price: price !== undefined ? price : course.price,
+        thumbnail: thumbnail || course.thumbnail,
+        objectives: objectives || course.objectives,
+        requirements: requirements || course.requirements,
+        isPublished: isPublished !== undefined ? isPublished : course.isPublished,
+      },
+      { new: true }
+    ).populate('instructorId', 'name email avatar');
+
+    return NextResponse.json({
+      success: true,
+      message: 'Course updated successfully',
+      course: updatedCourse,
+    });
+  } catch (error) {
+    console.error('Update course error:', error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Internal server error',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ======================
+// DELETE COURSE
+// ======================
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    if (session.user.role !== 'instructor' && session.user.role !== 'admin') {
+      return NextResponse.json(
+        { success: false, error: 'Only instructors and admins can delete courses' },
+        { status: 403 }
+      );
+    }
+
+    await connectDB();
+
+    const { searchParams } = new URL(request.url);
+    const courseId = searchParams.get('courseId');
+
+    if (!courseId) {
+      return NextResponse.json(
+        { success: false, error: 'Course ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const course = await CourseModel.findById(courseId);
+
+    if (!course) {
+      return NextResponse.json(
+        { success: false, error: 'Course not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check ownership
+    if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized to delete this course' },
+        { status: 403 }
+      );
+    }
+
+    // Delete associated modules
+    await ModuleModel.deleteMany({ courseId });
+
+    // Delete course
+    await CourseModel.findByIdAndDelete(courseId);
+
+    return NextResponse.json({
+      success: true,
+      message: 'Course deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete course error:', error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Internal server error',
+      },
+      { status: 500 }
+    );
+  }
+}

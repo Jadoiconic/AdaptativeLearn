@@ -233,6 +233,76 @@ export default function ModulesPage() {
     setShowAssessmentModal(true);
   };
 
+  const handleDeleteModule = async (moduleId: string) => {
+    if (!confirm('Are you sure you want to delete this module?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/modules?moduleId=${moduleId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete module');
+      }
+
+      alert('Module deleted successfully');
+      fetchModules(selectedCourse);
+    } catch (error) {
+      console.error('Error deleting module:', error);
+      alert('Failed to delete module');
+    }
+  };
+
+  const handleEditModule = (module: Module) => {
+    setSelectedModuleForAssessment(module);
+    setFormData({
+      title: module.title,
+      description: module.description,
+      content: module.content,
+      order: module.order,
+      difficulty: module.difficulty,
+      type: module.type,
+      videoUrl: module.videoUrl || '',
+      fileUrl: module.fileUrl || '',
+      isPublished: module.isPublished,
+    });
+    setShowCreateModal(true);
+  };
+
+  const handleUpdateModule = async () => {
+    if (!selectedModuleForAssessment) return;
+
+    try {
+      const response = await fetch('/api/modules', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          moduleId: selectedModuleForAssessment._id,
+          courseId: selectedCourse,
+          ...formData,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update module');
+      }
+
+      alert('Module updated successfully');
+      setShowCreateModal(false);
+      fetchModules(selectedCourse);
+      setSelectedModuleForAssessment(null);
+    } catch (error) {
+      console.error('Error updating module:', error);
+      alert('Failed to update module');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -307,7 +377,11 @@ export default function ModulesPage() {
                       <p className="text-sm text-slate-600">{module.description}</p>
                     </div>
                     <div className="flex gap-2 ml-4">
-                      <Button variant="outline" size="sm">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEditModule(module)}
+                      >
                         Edit
                       </Button>
                       <Button 
@@ -318,7 +392,12 @@ export default function ModulesPage() {
                       >
                         Add Assessment
                       </Button>
-                      <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => handleDeleteModule(module._id)}
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                      >
                         Delete
                       </Button>
                     </div>
@@ -335,16 +414,21 @@ export default function ModulesPage() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-slate-900">Create New Module</h2>
+              <h2 className="text-2xl font-bold text-slate-900">
+                {selectedModuleForAssessment ? 'Edit Module' : 'Create New Module'}
+              </h2>
               <button
-                onClick={() => setShowCreateModal(false)}
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setSelectedModuleForAssessment(null);
+                }}
                 className="text-slate-500 hover:text-slate-700"
               >
                 ✕
               </button>
             </div>
             
-            <form onSubmit={handleCreateModule}>
+            <form onSubmit={selectedModuleForAssessment ? handleUpdateModule : handleCreateModule}>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>

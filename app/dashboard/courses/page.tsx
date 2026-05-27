@@ -28,6 +28,20 @@ export default function CoursesPage() {
   const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    difficulty: 'beginner',
+    duration: '',
+    price: 0,
+    thumbnail: '',
+    objectives: '',
+    requirements: '',
+    isPublished: false,
+  });
 
   useEffect(() => {
     fetchCourses();
@@ -101,6 +115,75 @@ export default function CoursesPage() {
       console.error('Error fetching courses:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm('Are you sure you want to delete this course? This will also delete all its modules.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/courses?courseId=${courseId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete course');
+      }
+
+      alert('Course deleted successfully');
+      fetchCourses();
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      alert('Failed to delete course');
+    }
+  };
+
+  const handleEditCourse = (course: Course) => {
+    setSelectedCourse(course);
+    setEditFormData({
+      title: course.title,
+      description: course.description,
+      category: course.category,
+      difficulty: course.difficulty,
+      duration: course.duration,
+      price: 0,
+      thumbnail: course.thumbnail || '',
+      objectives: '',
+      requirements: '',
+      isPublished: course.isPublished,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateCourse = async () => {
+    if (!selectedCourse) return;
+
+    try {
+      const response = await fetch('/api/courses', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          courseId: selectedCourse._id,
+          ...editFormData,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update course');
+      }
+
+      alert('Course updated successfully');
+      setShowEditModal(false);
+      fetchCourses();
+    } catch (error) {
+      console.error('Error updating course:', error);
+      alert('Failed to update course');
     }
   };
 
@@ -187,6 +270,30 @@ export default function CoursesPage() {
               <button className="w-full py-2 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
                 {(course.progress || 0) > 0 ? 'Continue Learning' : 'Start Course'}
               </button>
+
+              {/* Instructor/Admin Actions */}
+              {(session?.user?.role === 'instructor' || session?.user?.role === 'admin') && (
+                <div className="flex gap-2 mt-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditCourse(course);
+                    }}
+                    className="flex-1 py-2 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-all duration-200"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCourse(course._id);
+                    }}
+                    className="flex-1 py-2 px-4 bg-red-100 hover:bg-red-200 text-red-700 font-medium rounded-lg transition-all duration-200"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -205,6 +312,123 @@ export default function CoursesPage() {
           <button className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
             Browse Courses
           </button>
+        </div>
+      )}
+
+      {/* Edit Course Modal */}
+      {showEditModal && selectedCourse && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-slate-900">Edit Course</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Title *</label>
+                <input
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({...editFormData, title: e.target.value})}
+                  required
+                  className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description *</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({...editFormData, description: e.target.value})}
+                  rows={3}
+                  required
+                  className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Category *</label>
+                  <input
+                    type="text"
+                    value={editFormData.category}
+                    onChange={(e) => setEditFormData({...editFormData, category: e.target.value})}
+                    required
+                    className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Difficulty *</label>
+                  <select
+                    value={editFormData.difficulty}
+                    onChange={(e) => setEditFormData({...editFormData, difficulty: e.target.value})}
+                    required
+                    className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Duration</label>
+                <input
+                  type="text"
+                  value={editFormData.duration}
+                  onChange={(e) => setEditFormData({...editFormData, duration: e.target.value})}
+                  className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g., 4 weeks"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Thumbnail URL</label>
+                <input
+                  type="url"
+                  value={editFormData.thumbnail}
+                  onChange={(e) => setEditFormData({...editFormData, thumbnail: e.target.value})}
+                  className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="isPublished"
+                  checked={editFormData.isPublished}
+                  onChange={(e) => setEditFormData({...editFormData, isPublished: e.target.checked})}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="isPublished" className="ml-2 text-sm text-slate-700">
+                  Published
+                </label>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-all duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateCourse}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200"
+                >
+                  Update Course
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

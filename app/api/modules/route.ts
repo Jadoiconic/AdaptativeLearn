@@ -152,3 +152,211 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// ======================
+// UPDATE MODULE
+// ======================
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || (session.user.role !== 'admin' && session.user.role !== 'instructor')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized. Instructor or Admin access required.',
+        },
+        { status: 403 }
+      );
+    }
+
+    await connectDB();
+
+    const {
+      moduleId,
+      courseId,
+      title,
+      description,
+      content,
+      order,
+      difficulty,
+      type,
+      videoUrl,
+      fileUrl,
+      isPublished,
+    } = await request.json();
+
+    if (!moduleId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Module ID is required',
+        },
+        { status: 400 }
+      );
+    }
+
+    const module = await ModuleModel.findById(moduleId);
+
+    if (!module) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Module not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check course ownership
+    const course = await CourseModel.findById(module.courseId);
+    if (!course) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Course not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'You can only update modules for your own courses',
+        },
+        { status: 403 }
+      );
+    }
+
+    // Update module
+    const updatedModule = await ModuleModel.findByIdAndUpdate(
+      moduleId,
+      {
+        courseId: courseId || module.courseId,
+        title: title || module.title,
+        description: description || module.description,
+        content: content || module.content,
+        order: order !== undefined ? order : module.order,
+        difficulty: difficulty || module.difficulty,
+        type: type || module.type,
+        videoUrl: videoUrl !== undefined ? videoUrl : module.videoUrl,
+        fileUrl: fileUrl !== undefined ? fileUrl : module.fileUrl,
+        isPublished: isPublished !== undefined ? isPublished : module.isPublished,
+      },
+      { new: true }
+    ).populate('courseId', 'title category');
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Module updated successfully',
+        module: updatedModule,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Update module error:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Internal server error',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// ======================
+// DELETE MODULE
+// ======================
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session || (session.user.role !== 'admin' && session.user.role !== 'instructor')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Unauthorized. Instructor or Admin access required.',
+        },
+        { status: 403 }
+      );
+    }
+
+    await connectDB();
+
+    const { searchParams } = new URL(request.url);
+    const moduleId = searchParams.get('moduleId');
+
+    if (!moduleId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Module ID is required',
+        },
+        { status: 400 }
+      );
+    }
+
+    const module = await ModuleModel.findById(moduleId);
+
+    if (!module) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Module not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    // Check course ownership
+    const course = await CourseModel.findById(module.courseId);
+    if (!course) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Course not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'You can only delete modules for your own courses',
+        },
+        { status: 403 }
+      );
+    }
+
+    // Delete module
+    await ModuleModel.findByIdAndDelete(moduleId);
+
+    // Decrement course module count
+    await CourseModel.findByIdAndUpdate(module.courseId, {
+      $inc: { moduleCount: -1 }
+    });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Module deleted successfully',
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Delete module error:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Internal server error',
+      },
+      { status: 500 }
+    );
+  }
+}

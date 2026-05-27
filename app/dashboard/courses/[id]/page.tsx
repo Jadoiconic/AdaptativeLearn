@@ -176,6 +176,7 @@ export default function CourseDetailPage() {
       const data = await response.json();
       
       if (data.success && data.assessments.length > 0) {
+        setSelectedModule(module);
         setCurrentAssessment(data.assessments[0]);
         setAssessmentAnswers({});
         setAssessmentSubmitted(false);
