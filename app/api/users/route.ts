@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    const body = await request.json();
     
-    if (!session || (session.user.role !== 'admin' && session.user.id !== request.body.id)) {
+    if (!session || (session.user.role !== 'admin' && session.user.id !== body.id)) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
@@ -68,7 +69,7 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
     
-    const { id, name, email, role, avatar } = await request.json();
+    const { id, name, email, role, avatar, status } = body;
     
     if (!id) {
       return NextResponse.json(
@@ -82,6 +83,7 @@ export async function PUT(request: NextRequest) {
     if (email) updateData.email = email.toLowerCase();
     if (role && session.user.role === 'admin') updateData.role = role;
     if (avatar) updateData.avatar = avatar;
+    if (status && session.user.role === 'admin') updateData.status = status;
     
     const user = await UserModel.findByIdAndUpdate(
       id,
@@ -102,6 +104,50 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     console.error('Update user error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized. Admin access required.' },
+        { status: 403 }
+      );
+    }
+
+    await connectDB();
+    
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    const user = await UserModel.findByIdAndDelete(id);
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json({
+      message: 'User deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

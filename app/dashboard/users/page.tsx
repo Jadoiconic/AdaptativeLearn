@@ -12,7 +12,7 @@ interface User {
   role: string;
   avatar?: string;
   createdAt: string;
-  status?: string;
+  isActive: boolean;
 }
 
 export default function UsersPage() {
@@ -21,6 +21,15 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    role: 'student',
+    password: '',
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -40,6 +49,119 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      
+      if (response.ok) {
+        setShowCreateModal(false);
+        setFormData({ name: '', email: '', role: 'student', password: '' });
+        fetchUsers();
+        alert('User created successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to create user');
+      }
+    } catch (error) {
+      console.error('Error creating user:', error);
+      alert('Failed to create user');
+    }
+  };
+
+  const handleEditUser = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedUser._id,
+          name: formData.name,
+          email: formData.email,
+          role: formData.role,
+          isActive: selectedUser.isActive,
+        }),
+      });
+      
+      if (response.ok) {
+        setShowEditModal(false);
+        setSelectedUser(null);
+        setFormData({ name: '', email: '', role: 'student', password: '' });
+        fetchUsers();
+        alert('User updated successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update user');
+      }
+    } catch (error) {
+      console.error('Error updating user:', error);
+      alert('Failed to update user');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Are you sure you want to delete this user?')) return;
+    
+    try {
+      const response = await fetch(`/api/users?id=${userId}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        fetchUsers();
+        alert('User deleted successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert('Failed to delete user');
+    }
+  };
+
+  const handleSuspendUser = async (user: User) => {
+    const newIsActive = !user.isActive;
+    
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user._id,
+          isActive: newIsActive,
+        }),
+      });
+      
+      if (response.ok) {
+        fetchUsers();
+        alert(`User ${newIsActive ? 'activated' : 'suspended'} successfully`);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to update user status');
+      }
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      alert('Failed to update user status');
+    }
+  };
+
+  const openEditModal = (user: User) => {
+    setSelectedUser(user);
+    setFormData({
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      password: '',
+    });
+    setShowEditModal(true);
   };
 
   const filteredUsers = users.filter(user => {
@@ -77,7 +199,7 @@ export default function UsersPage() {
 
   const stats = {
     totalUsers: users.length,
-    activeUsers: users.length, // All users are considered active for now
+    activeUsers: users.filter(u => u.isActive).length,
     students: users.filter(u => u.role === 'student').length,
     instructors: users.filter(u => u.role === 'instructor').length
   };
@@ -233,7 +355,10 @@ export default function UsersPage() {
                 <option value="instructor">Instructors</option>
                 <option value="admin">Admins</option>
               </select>
-              <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+              >
                 Add User
               </button>
             </div>
@@ -274,26 +399,38 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(user.status || 'active')}`}>
-                        {user.status || 'active'}
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(user.isActive ? 'active' : 'suspended')}`}>
+                        {user.isActive ? 'Active' : 'Suspended'}
                       </span>
                     </td>
                     <td className="py-4 px-4 text-slate-600">{new Date(user.createdAt).toLocaleDateString()}</td>
                     <td className="py-4 px-4 text-slate-600">Recently</td>
                     <td className="py-4 px-4">
                       <div className="flex space-x-2">
-                        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <button 
+                          onClick={() => openEditModal(user)}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
                           Edit
                         </button>
-                        <button className="text-slate-600 hover:text-slate-800 text-sm font-medium">
-                          View
+                        <button 
+                          onClick={() => handleDeleteUser(user._id)}
+                          className="text-red-600 hover:text-red-800 text-sm font-medium"
+                        >
+                          Delete
                         </button>
-                        {(user.status || 'active') === 'active' ? (
-                          <button className="text-red-600 hover:text-red-800 text-sm font-medium">
+                        {user.isActive ? (
+                          <button 
+                            onClick={() => handleSuspendUser(user)}
+                            className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+                          >
                             Suspend
                           </button>
                         ) : (
-                          <button className="text-green-600 hover:text-green-800 text-sm font-medium">
+                          <button 
+                            onClick={() => handleSuspendUser(user)}
+                            className="text-green-600 hover:text-green-800 text-sm font-medium"
+                          >
                             Activate
                           </button>
                         )}
@@ -318,6 +455,140 @@ export default function UsersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle className="text-slate-900">Create New User</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="student">Student</option>
+                    <option value="instructor">Instructor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={handleCreateUser}
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200"
+                  >
+                    Create User
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCreateModal(false);
+                      setFormData({ name: '', email: '', role: 'student', password: '' });
+                    }}
+                    className="flex-1 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle className="text-slate-900">Edit User</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="student">Student</option>
+                    <option value="instructor">Instructor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={handleEditUser}
+                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200"
+                  >
+                    Update User
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setSelectedUser(null);
+                      setFormData({ name: '', email: '', role: 'student', password: '' });
+                    }}
+                    className="flex-1 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
