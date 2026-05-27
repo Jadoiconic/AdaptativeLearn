@@ -50,7 +50,7 @@ export default function DashboardLayout({
       
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen shadow-sm">
+        <aside className="w-64 bg-white border-r border-gray-200 fixed top-0 left-0 h-screen overflow-y-auto z-40">
           <div className="p-6">
             <div className="mb-8">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Navigation</h2>
@@ -201,7 +201,7 @@ export default function DashboardLayout({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <main className="flex-1 bg-gradient-to-br from-gray-50 via-white to-blue-50 ml-64">
           <div className="p-8">
             {children}
           </div>
