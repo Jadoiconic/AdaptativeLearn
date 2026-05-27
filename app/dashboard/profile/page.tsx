@@ -129,7 +129,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.firstName}
                         onChange={(e) => setProfile({...profile, firstName: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.firstName}</p>
@@ -142,7 +142,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.lastName}
                         onChange={(e) => setProfile({...profile, lastName: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.lastName}</p>
@@ -162,7 +162,7 @@ export default function ProfilePage() {
                       value={profile.bio}
                       onChange={(e) => setProfile({...profile, bio: e.target.value})}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <p className="text-gray-900">{profile.bio}</p>
@@ -177,7 +177,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.location}
                         onChange={(e) => setProfile({...profile, location: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.location}</p>
@@ -190,7 +190,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.experience}
                         onChange={(e) => setProfile({...profile, experience: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.experience}</p>
@@ -205,7 +205,7 @@ export default function ProfilePage() {
                       type="text"
                       value={profile.education}
                       onChange={(e) => setProfile({...profile, education: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <p className="text-gray-900">{profile.education}</p>
@@ -304,7 +304,7 @@ export default function ProfilePage() {
                       type="url"
                       value={profile.website}
                       onChange={(e) => setProfile({...profile, website: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -319,7 +319,7 @@ export default function ProfilePage() {
                       type="url"
                       value={profile.linkedin}
                       onChange={(e) => setProfile({...profile, linkedin: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -334,7 +334,7 @@ export default function ProfilePage() {
                       type="url"
                       value={profile.github}
                       onChange={(e) => setProfile({...profile, github: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <a href={profile.github} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">

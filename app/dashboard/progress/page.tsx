@@ -48,36 +48,25 @@ export default function ProgressPage() {
         const coursesWithProgress = await Promise.all(
           data.courses.map(async (course: any) => {
             try {
-              const progressResponse = await fetch(`/api/progress?courseId=${course._id}`);
-              const progressData = await progressResponse.json();
-              
-              if (progressData.success && progressData.progress.length > 0) {
-                const completedModules = progressData.progress.filter(
-                  (p: any) => p.status === 'completed'
-                ).length;
-                
-                const totalModules = course.moduleCount || 0;
-                const progressPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
-                
-                return {
-                  _id: course._id,
-                  title: course.title,
-                  description: course.description,
-                  category: course.category,
-                  difficulty: course.difficulty,
-                  thumbnail: course.thumbnail,
-                  moduleCount: course.moduleCount,
-                  progress: progressPercentage,
-                  completedModules,
-                  totalModules,
-                  lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
-                };
-              }
-              
-              // Fetch modules to get total count even without progress
+              // Always fetch modules to get accurate total count
               const modulesResponse = await fetch(`/api/modules?courseId=${course._id}`);
               const modulesData = await modulesResponse.json();
               const totalModules = modulesData.success ? modulesData.modules.length : 0;
+              
+              // Fetch progress for the course
+              const progressResponse = await fetch(`/api/progress?courseId=${course._id}`);
+              const progressData = await progressResponse.json();
+              
+              let completedModules = 0;
+              let progressPercentage = 0;
+              
+              if (progressData.success && progressData.progress.length > 0) {
+                completedModules = progressData.progress.filter(
+                  (p: any) => p.status === 'completed'
+                ).length;
+                
+                progressPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+              }
               
               return {
                 _id: course._id,
@@ -87,8 +76,8 @@ export default function ProgressPage() {
                 difficulty: course.difficulty,
                 thumbnail: course.thumbnail,
                 moduleCount: course.moduleCount,
-                progress: 0,
-                completedModules: 0,
+                progress: progressPercentage,
+                completedModules,
                 totalModules,
                 lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
               };
