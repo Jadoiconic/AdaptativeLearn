@@ -16,15 +16,30 @@ interface DashboardStats {
   averageScore: number;
 }
 
+interface AnalyticsData {
+  labels: string[];
+  registrations: number[];
+  completions: number[];
+  totalRegistrations: number;
+  totalCompletions: number;
+}
+
 export default function AdminDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('7');
 
   useEffect(() => {
     fetchAdminStats();
+    fetchAnalytics();
   }, []);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [analyticsPeriod]);
 
   const fetchAdminStats = async () => {
     try {
@@ -42,6 +57,22 @@ export default function AdminDashboard() {
       console.error('Error fetching admin stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAnalytics = async () => {
+    try {
+      const response = await fetch(`/api/admin/analytics?period=${analyticsPeriod}`);
+      const data = await response.json();
+      
+      if (data.error) {
+        console.error('API error:', data.error);
+        return;
+      }
+      
+      setAnalytics(data);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
     }
   };
 
@@ -256,24 +287,52 @@ export default function AdminDashboard() {
           <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm border border-slate-200/60">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-slate-900">Platform Activity</h2>
-              <select className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
-                <option>Last 90 days</option>
+              <select 
+                value={analyticsPeriod}
+                onChange={(e) => setAnalyticsPeriod(e.target.value)}
+                className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
               </select>
             </div>
             <div className="h-64 flex items-end justify-between gap-2 px-4">
-              {[65, 80, 45, 90, 75, 85, 95].map((height, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2">
-                  <div 
-                    className="w-full bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all duration-300 hover:from-blue-600 hover:to-blue-500"
-                    style={{ height: `${height}%` }}
-                  ></div>
-                  <span className="text-xs font-medium text-slate-500">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]}
-                  </span>
-                </div>
-              ))}
+              {analytics?.labels.map((label, index) => {
+                const maxValue = Math.max(...analytics.registrations, ...analytics.completions, 1);
+                const regHeight = (analytics.registrations[index] / maxValue) * 100;
+                const compHeight = (analytics.completions[index] / maxValue) * 100;
+                
+                return (
+                  <div key={index} className="flex-1 flex flex-col items-center gap-2">
+                    <div className="flex items-end gap-1 w-full h-full">
+                      <div 
+                        className="flex-1 bg-gradient-to-t from-blue-500 to-blue-400 rounded-t-lg transition-all duration-300 hover:from-blue-600 hover:to-blue-500"
+                        style={{ height: `${regHeight}%` }}
+                        title={`Registrations: ${analytics.registrations[index]}`}
+                      ></div>
+                      <div 
+                        className="flex-1 bg-gradient-to-t from-green-500 to-green-400 rounded-t-lg transition-all duration-300 hover:from-green-600 hover:to-green-500"
+                        style={{ height: `${compHeight}%` }}
+                        title={`Completions: ${analytics.completions[index]}`}
+                      ></div>
+                    </div>
+                    <span className="text-xs font-medium text-slate-500">
+                      {label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-center gap-6 mt-4">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-blue-400 rounded"></div>
+                <span className="text-sm text-slate-600">Registrations</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-gradient-to-r from-green-500 to-green-400 rounded"></div>
+                <span className="text-sm text-slate-600">Completions</span>
+              </div>
             </div>
           </div>
 

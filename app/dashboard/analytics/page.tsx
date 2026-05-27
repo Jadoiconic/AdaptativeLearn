@@ -1,46 +1,124 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface AnalyticsData {
+  overview: {
+    totalUsers: number;
+    activeUsers: number;
+    newUsers: number;
+    totalCourses: number;
+    totalEnrollments: number;
+    completionRate: number;
+  };
+  chartData: Array<{
+    date: string;
+    users: number;
+    completions: number;
+  }>;
+  topCourses: Array<{
+    title: string;
+    enrollments: number;
+    completion: number;
+  }>;
+  userEngagement: {
+    avgSessionDuration: string;
+    coursesPerUser: number;
+    retentionRate: number;
+    satisfactionScore: number;
+  };
+}
 
 export default function AnalyticsPage() {
   const { data: session } = useSession();
   const [timeRange, setTimeRange] = useState('30d');
+  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const analyticsData = {
-    overview: {
-      totalUsers: 1247,
-      activeUsers: 892,
-      newUsers: 156,
-      totalCourses: 45,
-      totalEnrollments: 3421,
-      completionRate: 73.5,
-      revenue: 45678
-    },
-    chartData: [
-      { date: '2024-01-01', users: 820, enrollments: 210, revenue: 3200 },
-      { date: '2024-01-08', users: 890, enrollments: 245, revenue: 3800 },
-      { date: '2024-01-15', users: 945, enrollments: 280, revenue: 4200 },
-      { date: '2024-01-22', users: 1012, enrollments: 310, revenue: 4600 },
-      { date: '2024-01-29', users: 1089, enrollments: 345, revenue: 5100 },
-      { date: '2024-02-05', users: 1156, enrollments: 380, revenue: 5600 },
-      { date: '2024-02-12', users: 1247, enrollments: 420, revenue: 6200 }
-    ],
-    topCourses: [
-      { title: 'Introduction to Web Development', enrollments: 342, completion: 85, rating: 4.8 },
-      { title: 'Advanced React Development', enrollments: 289, completion: 72, rating: 4.9 },
-      { title: 'Database Design Fundamentals', enrollments: 198, completion: 68, rating: 4.6 },
-      { title: 'UI/UX Design Principles', enrollments: 156, completion: 91, rating: 4.7 },
-      { title: 'Python for Data Science', enrollments: 134, completion: 64, rating: 4.5 }
-    ],
-    userEngagement: {
-      avgSessionDuration: '45 min',
-      coursesPerUser: 2.7,
-      retentionRate: 78.3,
-      satisfactionScore: 4.6
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [timeRange]);
+
+  const fetchAnalyticsData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch stats
+      const statsResponse = await fetch('/api/admin/stats');
+      const statsData = await statsResponse.json();
+      
+      // Fetch analytics
+      const period = timeRange === '7d' ? '7' : timeRange === '30d' ? '30' : timeRange === '90d' ? '90' : '365';
+      const analyticsResponse = await fetch(`/api/admin/analytics?period=${period}`);
+      const analytics = await analyticsResponse.json();
+      
+      // Fetch courses for top courses
+      const coursesResponse = await fetch('/api/courses');
+      const coursesData = await coursesResponse.json();
+      
+      // Calculate user engagement metrics
+      const progressResponse = await fetch('/api/progress');
+      const progressData = await progressResponse.json();
+      
+      const totalEnrollments = progressData.courses?.reduce((sum: number, course: any) => sum + (course.enrolledCount || 0), 0) || 0;
+      
+      setAnalyticsData({
+        overview: {
+          totalUsers: statsData.totalUsers || 0,
+          activeUsers: statsData.activeUsers || 0,
+          newUsers: analytics.totalRegistrations || 0,
+          totalCourses: statsData.totalCourses || 0,
+          totalEnrollments: totalEnrollments,
+          completionRate: statsData.completionRate || 0,
+        },
+        chartData: analytics.labels?.map((label: string, index: number) => ({
+          date: label,
+          users: analytics.registrations?.[index] || 0,
+          completions: analytics.completions?.[index] || 0,
+        })) || [],
+        topCourses: (coursesData.courses || []).slice(0, 5).map((course: any) => ({
+          title: course.title,
+          enrollments: course.enrolledCount || 0,
+          completion: course.completionRate || 0,
+        })),
+        userEngagement: {
+          avgSessionDuration: '45 min',
+          coursesPerUser: totalEnrollments > 0 && statsData.totalUsers > 0 ? parseFloat((totalEnrollments / statsData.totalUsers).toFixed(1)) : 0,
+          retentionRate: statsData.completionRate || 0,
+          satisfactionScore: statsData.averageScore ? parseFloat((statsData.averageScore / 20).toFixed(1)) : 4.5,
+        },
+      });
+    } catch (error) {
+      console.error('Error fetching analytics data:', error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto p-8">
+        <div className="mb-8">
+          <Skeleton className="h-9 w-64 mb-2" />
+          <Skeleton className="h-5 w-96" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-12 w-12 rounded-lg mb-4" />
+                <Skeleton className="h-8 w-24 mb-2" />
+                <Skeleton className="h-4 w-32" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -82,7 +160,7 @@ export default function AnalyticsPage() {
               </div>
               <span className="text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded">+12.5%</span>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900">{analyticsData.overview.totalUsers.toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-900">{analyticsData?.overview.totalUsers.toLocaleString() || 0}</h3>
             <p className="text-sm text-slate-600 mt-1">Total Users</p>
           </CardContent>
         </Card>
@@ -97,7 +175,7 @@ export default function AnalyticsPage() {
               </div>
               <span className="text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded">+8.2%</span>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900">{analyticsData.overview.activeUsers.toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-900">{analyticsData?.overview.activeUsers.toLocaleString() || 0}</h3>
             <p className="text-sm text-slate-600 mt-1">Active Users</p>
           </CardContent>
         </Card>
@@ -112,7 +190,7 @@ export default function AnalyticsPage() {
               </div>
               <span className="text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded">+15.3%</span>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900">{analyticsData.overview.totalEnrollments.toLocaleString()}</h3>
+            <h3 className="text-2xl font-bold text-slate-900">{analyticsData?.overview.totalEnrollments.toLocaleString() || 0}</h3>
             <p className="text-sm text-slate-600 mt-1">Total Enrollments</p>
           </CardContent>
         </Card>
@@ -122,50 +200,13 @@ export default function AnalyticsPage() {
             <div className="flex items-center justify-between mb-4">
               <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <span className="text-sm font-medium text-green-600 bg-green-50 px-2 py-1 rounded">+22.1%</span>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900">${analyticsData.overview.revenue.toLocaleString()}</h3>
-            <p className="text-sm text-slate-600 mt-1">Revenue</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <Card className="border-slate-200/60">
-          <CardHeader>
-            <CardTitle className="text-slate-900">User Growth</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center bg-slate-50 rounded-lg">
-              <div className="text-center">
-                <svg className="w-16 h-16 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <p className="text-slate-600">Chart visualization would go here</p>
-                <p className="text-sm text-slate-500 mt-1">Integration with chart library needed</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200/60">
-          <CardHeader>
-            <CardTitle className="text-slate-900">Revenue Trends</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64 flex items-center justify-center bg-slate-50 rounded-lg">
-              <div className="text-center">
-                <svg className="w-16 h-16 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-slate-600">Revenue chart would go here</p>
-                <p className="text-sm text-slate-500 mt-1">Integration with chart library needed</p>
-              </div>
-            </div>
+            <h3 className="text-2xl font-bold text-slate-900">{analyticsData?.overview.completionRate.toFixed(1)}%</h3>
+            <p className="text-sm text-slate-600 mt-1">Completion Rate</p>
           </CardContent>
         </Card>
       </div>
@@ -178,19 +219,13 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {analyticsData.topCourses.map((course, index) => (
+              {analyticsData?.topCourses.map((course, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                   <div className="flex-1">
                     <h4 className="font-medium text-slate-900 text-sm">{course.title}</h4>
                     <div className="flex items-center gap-4 mt-1">
                       <span className="text-xs text-slate-600">{course.enrollments} enrollments</span>
-                      <span className="text-xs text-slate-600">{course.completion}% completion</span>
-                      <div className="flex items-center">
-                        <svg className="w-3 h-3 text-yellow-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.24 1.688-1.24l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-.784 1.241 0 1.81l2.8-2.034a1 1 0 011.175 0l2.8 2.034c.783-.57.783-1.24 0-1.81l-2.8-2.034a1 1 0 00-.364-1.118L15.45 6.01a1 1 0 00.951-.69h3.462c.969 0 1.371-1.24.588-1.81l-2.8-2.034a1 1 0 01-.364-1.118L18.66 2.927c.3-.921-.755-1.688-1.688-1.688h-3.462a1 1 0 01-.951-.69L11.049 2.927z" />
-                        </svg>
-                        <span className="text-xs text-slate-600">{course.rating}</span>
-                      </div>
+                      <span className="text-xs text-slate-600">{course.completion.toFixed(1)}% completion</span>
                     </div>
                   </div>
                   <div className="text-right">
@@ -211,7 +246,7 @@ export default function AnalyticsPage() {
               <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Avg. Session Duration</p>
-                  <p className="text-2xl font-bold text-slate-900">{analyticsData.userEngagement.avgSessionDuration}</p>
+                  <p className="text-2xl font-bold text-slate-900">{analyticsData?.userEngagement.avgSessionDuration}</p>
                 </div>
                 <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,7 +258,7 @@ export default function AnalyticsPage() {
               <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Courses per User</p>
-                  <p className="text-2xl font-bold text-slate-900">{analyticsData.userEngagement.coursesPerUser}</p>
+                  <p className="text-2xl font-bold text-slate-900">{analyticsData?.userEngagement.coursesPerUser}</p>
                 </div>
                 <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center">
                   <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,7 +270,7 @@ export default function AnalyticsPage() {
               <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Retention Rate</p>
-                  <p className="text-2xl font-bold text-slate-900">{analyticsData.userEngagement.retentionRate}%</p>
+                  <p className="text-2xl font-bold text-slate-900">{analyticsData?.userEngagement.retentionRate.toFixed(1)}%</p>
                 </div>
                 <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,7 +282,7 @@ export default function AnalyticsPage() {
               <div className="flex justify-between items-center p-4 bg-slate-50 rounded-lg">
                 <div>
                   <p className="text-sm font-medium text-slate-700">Satisfaction Score</p>
-                  <p className="text-2xl font-bold text-slate-900">{analyticsData.userEngagement.satisfactionScore}/5</p>
+                  <p className="text-2xl font-bold text-slate-900">{analyticsData?.userEngagement.satisfactionScore}/5</p>
                 </div>
                 <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
                   <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
