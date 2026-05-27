@@ -613,7 +613,10 @@ export default function StudentDashboard() {
                                   <span className="text-xs text-gray-600">{module.type}</span>
                                 </div>
                               </div>
-                              <button className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200">
+                              <button
+                                onClick={() => router.push(`/dashboard/courses/${module.courseId}`)}
+                                className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all duration-200"
+                              >
                                 Start
                               </button>
                             </div>
