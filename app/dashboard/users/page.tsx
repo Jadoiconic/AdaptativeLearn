@@ -1,60 +1,46 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface User {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string;
+  createdAt: string;
+  status?: string;
+}
 
 export default function UsersPage() {
   const { data: session } = useSession();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
 
-  const users = [
-    {
-      id: 1,
-      name: 'John Doe',
-      email: 'john.doe@example.com',
-      role: 'student',
-      status: 'active',
-      joinDate: '2024-01-15',
-      lastActive: '2 hours ago',
-      coursesEnrolled: 3,
-      progress: 75
-    },
-    {
-      id: 2,
-      name: 'Jane Smith',
-      email: 'jane.smith@example.com',
-      role: 'instructor',
-      status: 'active',
-      joinDate: '2024-01-10',
-      lastActive: '1 day ago',
-      coursesCreated: 5,
-      students: 142
-    },
-    {
-      id: 3,
-      name: 'Mike Johnson',
-      email: 'mike.johnson@example.com',
-      role: 'student',
-      status: 'active',
-      joinDate: '2024-02-01',
-      lastActive: '3 days ago',
-      coursesEnrolled: 2,
-      progress: 45
-    },
-    {
-      id: 4,
-      name: 'Sarah Wilson',
-      email: 'sarah.wilson@example.com',
-      role: 'student',
-      status: 'inactive',
-      joinDate: '2023-12-15',
-      lastActive: '2 weeks ago',
-      coursesEnrolled: 1,
-      progress: 20
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/users');
+      const data = await response.json();
+      
+      if (data.users) {
+        setUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,10 +77,62 @@ export default function UsersPage() {
 
   const stats = {
     totalUsers: users.length,
-    activeUsers: users.filter(u => u.status === 'active').length,
+    activeUsers: users.length, // All users are considered active for now
     students: users.filter(u => u.role === 'student').length,
     instructors: users.filter(u => u.role === 'instructor').length
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <Skeleton className="h-9 w-64 mb-2" />
+          <Skeleton className="h-5 w-96" />
+        </div>
+
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-6 w-20 mb-2" />
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Filters Skeleton */}
+        <Card className="mb-6">
+          <CardContent className="p-6">
+            <Skeleton className="h-10 w-full" />
+          </CardContent>
+        </Card>
+
+        {/* Users Table Skeleton */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between p-4 border-b last:border-b-0">
+                <div className="flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-full" />
+                  <div className="flex-1">
+                    <Skeleton className="h-5 w-32 mb-1" />
+                    <Skeleton className="h-4 w-48" />
+                  </div>
+                </div>
+                <Skeleton className="h-8 w-20" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -223,7 +261,7 @@ export default function UsersPage() {
               </thead>
               <tbody>
                 {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <tr key={user._id} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-4 px-4">
                       <div>
                         <div className="font-medium text-slate-900">{user.name}</div>
@@ -236,12 +274,12 @@ export default function UsersPage() {
                       </span>
                     </td>
                     <td className="py-4 px-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(user.status)}`}>
-                        {user.status}
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(user.status || 'active')}`}>
+                        {user.status || 'active'}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-slate-600">{user.joinDate}</td>
-                    <td className="py-4 px-4 text-slate-600">{user.lastActive}</td>
+                    <td className="py-4 px-4 text-slate-600">{new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td className="py-4 px-4 text-slate-600">Recently</td>
                     <td className="py-4 px-4">
                       <div className="flex space-x-2">
                         <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
@@ -250,7 +288,7 @@ export default function UsersPage() {
                         <button className="text-slate-600 hover:text-slate-800 text-sm font-medium">
                           View
                         </button>
-                        {user.status === 'active' ? (
+                        {(user.status || 'active') === 'active' ? (
                           <button className="text-red-600 hover:text-red-800 text-sm font-medium">
                             Suspend
                           </button>

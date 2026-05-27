@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -16,6 +17,7 @@ interface DashboardStats {
 
 export default function AdminDashboard() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +55,7 @@ export default function AdminDashboard() {
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
         <div className="flex space-x-2">
           <Button variant="outline">Export Report</Button>
-          <Button>Manage Users</Button>
+          <Button onClick={() => router.push('/dashboard/admin/users')}>Manage Users</Button>
         </div>
       </div>
 
