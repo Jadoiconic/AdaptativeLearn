@@ -3,11 +3,15 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface ICourse extends Document {
   title: string;
   description: string;
-  category: 'imaging' | 'networking' | 'graphic-design' | 'software-development';
+  category: string;
   instructorId: mongoose.Types.ObjectId;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
-  duration: number;
+  duration: string;
+  price?: number;
   thumbnail?: string;
+  objectives?: string[];
+  requirements?: string[];
+  moduleCount?: number;
   isPublished: boolean;
 }
 
@@ -24,8 +28,8 @@ const CourseSchema = new Schema<ICourse>({
   },
   category: {
     type: String,
-    enum: ['imaging', 'networking', 'graphic-design', 'software-development'],
     required: [true, 'Course category is required'],
+    trim: true,
   },
   instructorId: {
     type: Schema.Types.ObjectId,
@@ -38,13 +42,30 @@ const CourseSchema = new Schema<ICourse>({
     default: 'beginner',
   },
   duration: {
-    type: Number,
+    type: String,
     required: [true, 'Course duration is required'],
-    min: [1, 'Duration must be at least 1 hour'],
+    trim: true,
+  },
+  price: {
+    type: Number,
+    default: 0,
+    min: [0, 'Price must be at least 0'],
   },
   thumbnail: {
     type: String,
     default: '',
+  },
+  objectives: {
+    type: [String],
+    default: [],
+  },
+  requirements: {
+    type: [String],
+    default: [],
+  },
+  moduleCount: {
+    type: Number,
+    default: 0,
   },
   isPublished: {
     type: Boolean,

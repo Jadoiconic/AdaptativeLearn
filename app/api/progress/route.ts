@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
     
     if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        {
+          success: false,
+          error: 'Unauthorized',
+        },
         { status: 401 }
       );
     }
@@ -26,7 +29,10 @@ export async function GET(request: NextRequest) {
     
     if (session.user.role !== 'admin' && userId !== session.user.id) {
       return NextResponse.json(
-        { error: 'Unauthorized to access other users progress' },
+        {
+          success: false,
+          error: 'Unauthorized to access other users progress',
+        },
         { status: 403 }
       );
     }
@@ -36,11 +42,17 @@ export async function GET(request: NextRequest) {
       .populate('courseId', 'title category')
       .sort({ createdAt: -1 });
     
-    return NextResponse.json({ progress });
+    return NextResponse.json({
+      success: true,
+      progress,
+    });
   } catch (error) {
     console.error('Get progress error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Internal server error',
+      },
       { status: 500 }
     );
   }
@@ -52,7 +64,10 @@ export async function POST(request: NextRequest) {
     
     if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        {
+          success: false,
+          error: 'Unauthorized',
+        },
         { status: 401 }
       );
     }
@@ -63,7 +78,10 @@ export async function POST(request: NextRequest) {
     
     if (!moduleId || !status) {
       return NextResponse.json(
-        { error: 'Module ID and status are required' },
+        {
+          success: false,
+          error: 'Module ID and status are required',
+        },
         { status: 400 }
       );
     }
@@ -71,7 +89,10 @@ export async function POST(request: NextRequest) {
     const module = await ModuleModel.findById(moduleId);
     if (!module) {
       return NextResponse.json(
-        { error: 'Module not found' },
+        {
+          success: false,
+          error: 'Module not found',
+        },
         { status: 404 }
       );
     }
@@ -110,14 +131,21 @@ export async function POST(request: NextRequest) {
       .populate('moduleId', 'title type order')
       .populate('courseId', 'title category');
     
-    return NextResponse.json({
-      message: 'Progress updated successfully',
-      progress: populatedProgress,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Progress updated successfully',
+        progress: populatedProgress,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error('Update progress error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Internal server error',
+      },
       { status: 500 }
     );
   }

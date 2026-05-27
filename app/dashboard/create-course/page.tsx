@@ -64,10 +64,80 @@ export default function CreateCoursePage() {
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, publish: boolean = false) => {
     e.preventDefault();
-    console.log('Creating course:', formData);
-    // Handle course creation logic here
+    
+    // Form validation
+    if (!formData.title.trim()) {
+      alert('Please enter a course title');
+      return;
+    }
+    
+    if (!formData.description.trim()) {
+      alert('Please enter a course description');
+      return;
+    }
+    
+    if (!formData.category) {
+      alert('Please select a category');
+      return;
+    }
+    
+    if (!formData.duration.trim()) {
+      alert('Please enter a duration');
+      return;
+    }
+    
+    if (publish) {
+      const validObjectives = formData.objectives.filter(obj => obj.trim() !== '');
+      if (validObjectives.length === 0) {
+        alert('Please add at least one learning objective before publishing');
+        return;
+      }
+    }
+    
+    try {
+      const response = await fetch('/api/courses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          category: formData.category,
+          difficulty: formData.level,
+          duration: formData.duration,
+          price: formData.price ? parseFloat(formData.price) : 0,
+          thumbnail: formData.thumbnail,
+          objectives: formData.objectives.filter(obj => obj.trim() !== ''),
+          requirements: formData.requirements.filter(req => req.trim() !== ''),
+          isPublished: publish,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create course');
+      }
+
+      const result = await response.json();
+      console.log('Course created successfully:', result);
+      
+      // Redirect to instructor dashboard or course details
+      window.location.href = '/dashboard/instructor';
+    } catch (error) {
+      console.error('Error creating course:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create course');
+    }
+  };
+
+  const handleSaveDraft = (e: React.FormEvent) => {
+    handleSubmit(e, false);
+  };
+
+  const handlePublish = (e: React.FormEvent) => {
+    handleSubmit(e, true);
   };
 
   return (
@@ -96,7 +166,7 @@ export default function CreateCoursePage() {
                   value={formData.title}
                   onChange={handleInputChange}
                   required
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter course title"
                 />
               </div>
@@ -111,7 +181,7 @@ export default function CreateCoursePage() {
                   onChange={handleInputChange}
                   required
                   rows={4}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Describe what students will learn in this course"
                 />
               </div>
@@ -126,7 +196,7 @@ export default function CreateCoursePage() {
                     value={formData.category}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="">Select a category</option>
                     {categories.map(category => (
@@ -144,7 +214,7 @@ export default function CreateCoursePage() {
                     value={formData.level}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     {levels.map(level => (
                       <option key={level.value} value={level.value}>{level.label}</option>
@@ -162,7 +232,7 @@ export default function CreateCoursePage() {
                     value={formData.duration}
                     onChange={handleInputChange}
                     required
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="e.g., 8 weeks"
                   />
                 </div>
@@ -179,7 +249,7 @@ export default function CreateCoursePage() {
                   onChange={handleInputChange}
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
@@ -193,7 +263,7 @@ export default function CreateCoursePage() {
                   name="thumbnail"
                   value={formData.thumbnail}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="https://example.com/thumbnail.jpg"
                 />
               </div>
@@ -213,7 +283,7 @@ export default function CreateCoursePage() {
                       type="text"
                       value={objective}
                       onChange={(e) => handleArrayChange('objectives', index, e.target.value)}
-                      className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder={`Learning objective ${index + 1}`}
                     />
                     {formData.objectives.length > 1 && (
@@ -253,7 +323,7 @@ export default function CreateCoursePage() {
                       type="text"
                       value={requirement}
                       onChange={(e) => handleArrayChange('requirements', index, e.target.value)}
-                      className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder={`Requirement ${index + 1}`}
                     />
                     {formData.requirements.length > 1 && (
@@ -284,15 +354,17 @@ export default function CreateCoursePage() {
           <div className="flex justify-end space-x-4">
             <button
               type="button"
+              onClick={handleSaveDraft}
               className="px-6 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-colors"
             >
               Save as Draft
             </button>
             <button
-              type="submit"
+              type="button"
+              onClick={handlePublish}
               className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
             >
-              Create Course
+              Publish Course
             </button>
           </div>
         </div>

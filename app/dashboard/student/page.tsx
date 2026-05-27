@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -11,6 +12,8 @@ interface EnrolledCourse {
   description: string;
   category: string;
   difficulty: string;
+  thumbnail?: string;
+  moduleCount?: number;
   progress: number;
   completedModules: number;
   totalModules: number;
@@ -41,9 +44,11 @@ interface Recommendation {
 
 export default function StudentDashboard() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
   const [recentProgress, setRecentProgress] = useState<Progress[]>([]);
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'courses' | 'recommendations'>('courses');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,77 +59,120 @@ export default function StudentDashboard() {
     try {
       setLoading(true);
       
-      // Mock data for now - replace with actual API calls
-      const mockCourses: EnrolledCourse[] = [
-        {
-          _id: '1',
-          title: 'Advanced React Development',
-          description: 'Master React with advanced concepts',
-          category: 'software-development',
-          difficulty: 'advanced',
-          progress: 65,
-          completedModules: 8,
-          totalModules: 12,
-          lastAccessed: '2024-01-25',
-        },
-        {
-          _id: '2',
-          title: 'JavaScript Fundamentals',
-          description: 'Learn JavaScript from scratch',
-          category: 'software-development',
-          difficulty: 'beginner',
-          progress: 90,
-          completedModules: 9,
-          totalModules: 10,
-          lastAccessed: '2024-01-24',
-        },
-      ];
-
-      const mockProgress: Progress[] = [
-        {
-          courseId: '1',
-          courseTitle: 'Advanced React Development',
-          moduleId: '1',
-          moduleTitle: 'React Hooks Deep Dive',
-          status: 'completed',
-          score: 92,
-          completedAt: '2024-01-25',
-        },
-        {
-          courseId: '2',
-          courseTitle: 'JavaScript Fundamentals',
-          moduleId: '2',
-          moduleTitle: 'DOM Manipulation',
-          status: 'in-progress',
-          score: 78,
-        },
-      ];
-
-      const mockRecommendations: Recommendation[] = [
-        {
-          _id: '1',
-          reasoning: 'Based on your strong performance in JavaScript, we recommend advancing to more complex topics',
-          priority: 'high',
-          suggestedModules: [
-            {
-              _id: '1',
-              title: 'Advanced JavaScript Patterns',
-              difficulty: 'advanced',
-              type: 'lesson',
-            },
-            {
-              _id: '2',
-              title: 'Async Programming Mastery',
-              difficulty: 'intermediate',
-              type: 'exercise',
-            },
-          ],
-        },
-      ];
-
-      setEnrolledCourses(mockCourses);
-      setRecentProgress(mockProgress);
-      setRecommendations(mockRecommendations);
+      // Fetch published courses from database
+      const response = await fetch('/api/courses?published=true');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch courses');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Fetch progress for each course
+        const coursesWithProgress = await Promise.all(
+          data.courses.map(async (course: any) => {
+            try {
+              const progressResponse = await fetch(`/api/progress?courseId=${course._id}`);
+              const progressData = await progressResponse.json();
+              
+              if (progressData.success && progressData.progress.length > 0) {
+                const completedModules = progressData.progress.filter(
+                  (p: any) => p.status === 'completed'
+                ).length;
+                
+                // Fetch modules to get total count
+                const modulesResponse = await fetch(`/api/modules?courseId=${course._id}`);
+                const modulesData = await modulesResponse.json();
+                const totalModules = modulesData.success ? modulesData.modules.length : 0;
+                
+                const progressPercentage = totalModules > 0 
+                  ? Math.round((completedModules / totalModules) * 100) 
+                  : 0;
+                
+                return {
+                  _id: course._id,
+                  title: course.title,
+                  description: course.description,
+                  category: course.category,
+                  difficulty: course.difficulty,
+                  thumbnail: course.thumbnail,
+                  moduleCount: course.moduleCount,
+                  progress: progressPercentage,
+                  completedModules,
+                  totalModules,
+                  lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+                };
+              }
+              
+              // Fetch modules to get total count even without progress
+              const modulesResponse = await fetch(`/api/modules?courseId=${course._id}`);
+              const modulesData = await modulesResponse.json();
+              const totalModules = modulesData.success ? modulesData.modules.length : 0;
+              
+              return {
+                _id: course._id,
+                title: course.title,
+                description: course.description,
+                category: course.category,
+                difficulty: course.difficulty,
+                thumbnail: course.thumbnail,
+                moduleCount: course.moduleCount,
+                progress: 0,
+                completedModules: 0,
+                totalModules,
+                lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+              };
+            } catch (error) {
+              console.error('Error fetching progress for course:', course._id, error);
+              return {
+                _id: course._id,
+                title: course.title,
+                description: course.description,
+                category: course.category,
+                difficulty: course.difficulty,
+                thumbnail: course.thumbnail,
+                moduleCount: course.moduleCount,
+                progress: 0,
+                completedModules: 0,
+                totalModules: 0,
+                lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+              };
+            }
+          })
+        );
+        
+        setEnrolledCourses(coursesWithProgress);
+      } else {
+        console.error('Error fetching courses:', data.error);
+      }
+      
+      // Fetch recent progress
+      const progressResponse = await fetch('/api/progress');
+      if (progressResponse.ok) {
+        const progressData = await progressResponse.json();
+        if (progressData.success) {
+          const transformedProgress: Progress[] = progressData.progress.map((p: any) => ({
+            courseId: p.courseId._id,
+            courseTitle: p.courseId.title,
+            moduleId: p.moduleId._id,
+            moduleTitle: p.moduleId.title,
+            status: p.status,
+            score: p.score,
+            completedAt: p.completedAt,
+          }));
+          setRecentProgress(transformedProgress.slice(0, 5)); // Show last 5
+        }
+      }
+      
+      // Fetch recommendations
+      const recommendationsResponse = await fetch('/api/recommendations?type=all');
+      if (recommendationsResponse.ok) {
+        const recommendationsData = await recommendationsResponse.json();
+        if (recommendationsData.success) {
+          setRecommendations(recommendationsData.recommendations);
+        }
+      }
     } catch (error) {
       console.error('Error fetching student data:', error);
     } finally {
@@ -165,6 +213,39 @@ export default function StudentDashboard() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="mb-6">
+        <div className="border-b border-slate-200">
+          <nav className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('courses')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'courses'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              My Courses
+            </button>
+            <button
+              onClick={() => setActiveTab('recommendations')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'recommendations'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Recommendations
+              {recommendations.length > 0 && (
+                <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+                  {recommendations.length}
+                </span>
+              )}
+            </button>
+          </nav>
         </div>
       </div>
 
@@ -232,31 +313,57 @@ export default function StudentDashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6">
         {/* Courses Section */}
-        <div className="xl:col-span-2 space-y-6">
-          <Card className="border-gray-200">
-            <CardHeader className="flex justify-between items-center">
-              <CardTitle className="text-gray-900">My Courses</CardTitle>
-              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
-                Browse More
-              </button>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {enrolledCourses.map((course) => (
+        {activeTab === 'courses' && (
+          <div className="xl:col-span-2 space-y-6">
+            <Card className="border-gray-200">
+              <CardHeader className="flex justify-between items-center">
+                <CardTitle className="text-gray-900">My Courses</CardTitle>
+                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+                  Browse More
+                </button>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {enrolledCourses.map((course) => (
                   <div key={course._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
-                    <div className="space-y-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{course.title}</h3>
-                        <p className="text-sm text-gray-600 mb-2">{course.description}</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
-                          <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium">{course.category}</span>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{course.difficulty}</span>
+                    <div className="flex gap-4">
+                      {/* Thumbnail */}
+                      <div className="w-32 h-24 flex-shrink-0 relative">
+                        {course.thumbnail ? (
+                          <img
+                            src={course.thumbnail}
+                            alt={course.title}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg ${course.thumbnail ? 'hidden' : ''}`}>
+                          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                          </div>
                         </div>
-                        <span className="text-sm text-gray-500">
-                          Last: {new Date(course.lastAccessed).toLocaleDateString()}
-                        </span>
+                      </div>
+                      
+                      {/* Course Info */}
+                      <div className="flex-1 space-y-3 cursor-pointer" onClick={() => router.push(`/dashboard/courses/${course._id}`)}>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1">{course.title}</h3>
+                          <p className="text-sm text-gray-600 mb-2">{course.description}</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                            <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium">{course.category}</span>
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{course.difficulty}</span>
+                          </div>
+                          <span className="text-sm text-gray-500">
+                            Last: {new Date(course.lastAccessed).toLocaleDateString()}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <div className="mt-4">
@@ -288,6 +395,76 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
+        )}
+
+        {/* Recommendations Section */}
+        {activeTab === 'recommendations' && (
+          <div className="xl:col-span-2 space-y-6">
+            <Card className="border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-gray-900">Recommendations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recommendations.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">No recommendations at this time. Keep learning!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {recommendations.map((rec: any, index: number) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
+                        {rec.type === 'failed-assessment' && (
+                          <>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                                Failed Assessment
+                              </span>
+                              <span className="text-sm text-gray-600">
+                                Score: {rec.score}%
+                              </span>
+                            </div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{rec.module.title}</h3>
+                            <p className="text-sm text-gray-600 mb-3">{rec.course.title}</p>
+                            <p className="text-sm text-gray-700 mb-3">{rec.reasoning}</p>
+                            <button
+                              onClick={() => router.push(`/dashboard/courses/${rec.course._id}`)}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all duration-200"
+                            >
+                              Retry Module
+                            </button>
+                          </>
+                        )}
+                        {rec.type === 'ai-recommendation' && (
+                          <>
+                            <div className="flex items-center gap-2 mb-3">
+                              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                rec.priority === 'high' 
+                                  ? 'bg-red-100 text-red-700' 
+                                  : rec.priority === 'medium'
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-green-100 text-green-700'
+                              }`}>
+                                {rec.priority} priority
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 mb-3">{rec.reasoning}</p>
+                            <div className="space-y-2">
+                              {rec.modules && rec.modules.map((module: any, idx: number) => (
+                                <div key={idx} className="text-sm text-gray-900 font-medium">
+                                  • {module.title}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Sidebar */}
         <div className="space-y-6">
@@ -318,7 +495,7 @@ export default function StudentDashboard() {
                     </div>
                     <p className="text-sm text-gray-700 mb-3">{rec.reasoning}</p>
                     <div className="space-y-2">
-                      {rec.suggestedModules.map((module, index) => (
+                      {rec.suggestedModules.map((module: any, index: number) => (
                         <div key={module._id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200">
                           <div className="flex-1">
                             <p className="font-medium text-sm text-gray-900">{module.title}</p>

@@ -27,6 +27,7 @@ export async function GET(request: NextRequest) {
     const total = await ModuleModel.countDocuments(filter);
     
     return NextResponse.json({
+      success: true,
       modules,
       pagination: {
         page,
@@ -38,7 +39,10 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Get modules error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Internal server error',
+      },
       { status: 500 }
     );
   }
@@ -50,7 +54,10 @@ export async function POST(request: NextRequest) {
     
     if (!session || (session.user.role !== 'admin' && session.user.role !== 'instructor')) {
       return NextResponse.json(
-        { error: 'Unauthorized. Instructor or Admin access required.' },
+        {
+          success: false,
+          error: 'Unauthorized. Instructor or Admin access required.',
+        },
         { status: 403 }
       );
     }
@@ -72,7 +79,10 @@ export async function POST(request: NextRequest) {
     
     if (!courseId || !title || !description || !content) {
       return NextResponse.json(
-        { error: 'Course ID, title, description, and content are required' },
+        {
+          success: false,
+          error: 'Course ID, title, description, and content are required',
+        },
         { status: 400 }
       );
     }
@@ -80,14 +90,20 @@ export async function POST(request: NextRequest) {
     const course = await CourseModel.findById(courseId);
     if (!course) {
       return NextResponse.json(
-        { error: 'Course not found' },
+        {
+          success: false,
+          error: 'Course not found',
+        },
         { status: 404 }
       );
     }
     
     if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
       return NextResponse.json(
-        { error: 'You can only create modules for your own courses' },
+        {
+          success: false,
+          error: 'You can only create modules for your own courses',
+        },
         { status: 403 }
       );
     }
@@ -107,19 +123,31 @@ export async function POST(request: NextRequest) {
     
     await module.save();
     
+    // Increment course module count
+    await CourseModel.findByIdAndUpdate(courseId, {
+      $inc: { moduleCount: 1 }
+    });
+    
     const populatedModule = await ModuleModel.findById(module._id).populate(
       'courseId',
       'title category'
     );
     
-    return NextResponse.json({
-      message: 'Module created successfully',
-      module: populatedModule,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Module created successfully',
+        module: populatedModule,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Create module error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Internal server error',
+      },
       { status: 500 }
     );
   }

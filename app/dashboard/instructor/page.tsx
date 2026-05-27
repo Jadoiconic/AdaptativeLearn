@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -11,7 +12,9 @@ interface Course {
   description: string;
   category: string;
   difficulty: string;
-  duration: number;
+  duration: string;
+  thumbnail?: string;
+  moduleCount?: number;
   isPublished: boolean;
   createdAt: string;
   enrolledCount?: number;
@@ -29,6 +32,7 @@ interface InstructorStats {
 
 export default function InstructorDashboard() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [stats, setStats] = useState<InstructorStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,59 +45,36 @@ export default function InstructorDashboard() {
     try {
       setLoading(true);
       
-      // Mock data for now - replace with actual API calls
-      const mockCourses: Course[] = [
-        {
-          _id: '1',
-          title: 'Advanced React Development',
-          description: 'Master React with advanced concepts',
-          category: 'Software Development',
-          difficulty: 'Advanced',
-          duration: 40,
-          isPublished: true,
-          createdAt: '2024-01-15',
-          enrolledCount: 45,
-          rating: 4.8,
-          progress: 75
-        },
-        {
-          _id: '2',
-          title: 'JavaScript Fundamentals',
-          description: 'Learn JavaScript from scratch',
-          category: 'Software Development',
-          difficulty: 'Beginner',
-          duration: 20,
-          isPublished: true,
-          createdAt: '2024-01-20',
-          enrolledCount: 78,
-          rating: 4.6,
-          progress: 90
-        },
-        {
-          _id: '3',
-          title: 'UI/UX Design Principles',
-          description: 'Design beautiful user interfaces',
-          category: 'Design',
-          difficulty: 'Intermediate',
-          duration: 25,
-          isPublished: false,
-          createdAt: '2024-02-01',
-          enrolledCount: 0,
-          rating: 0,
-          progress: 30
-        },
-      ];
-
-      const mockStats: InstructorStats = {
-        totalCourses: 3,
-        totalStudents: 123,
-        averageRating: 4.7,
-        totalRevenue: 4850,
-        completionRate: 82.5,
-      };
-
-      setCourses(mockCourses);
-      setStats(mockStats);
+      // Fetch courses from database
+      const response = await fetch(`/api/courses?instructorId=${session?.user?.id}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch courses');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setCourses(data.courses);
+      } else {
+        console.error('Error fetching courses:', data.error);
+      }
+      
+      // Calculate stats from courses
+      const totalCourses = data.courses?.length || 0;
+      const totalStudents = data.courses?.reduce((sum: number, course: Course) => sum + (course.enrolledCount || 0), 0) || 0;
+      const publishedCourses = data.courses?.filter((c: Course) => c.isPublished) || [];
+      const averageRating = publishedCourses.length > 0 
+        ? publishedCourses.reduce((sum: number, c: Course) => sum + (c.rating || 0), 0) / publishedCourses.length 
+        : 0;
+      
+      setStats({
+        totalCourses,
+        totalStudents,
+        averageRating: Number(averageRating.toFixed(1)),
+        totalRevenue: 0,
+        completionRate: 0
+      });
     } catch (error) {
       console.error('Error fetching instructor data:', error);
     } finally {
@@ -225,33 +206,61 @@ export default function InstructorDashboard() {
               <div className="space-y-4">
                 {courses.map((course) => (
                   <div key={course._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
-                    <div className="space-y-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">{course.title}</h3>
-                        <p className="text-sm text-gray-600 mb-2">{course.description}</p>
-                      </div>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
-                          <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium">{course.category}</span>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{course.difficulty}</span>
-                          <span>{course.duration} hours</span>
+                    <div className="flex gap-4">
+                      {/* Thumbnail */}
+                      <div className="w-32 h-24 flex-shrink-0 relative">
+                        {course.thumbnail ? (
+                          <img
+                            src={course.thumbnail}
+                            alt={course.title}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div className={`absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg ${course.thumbnail ? 'hidden' : ''}`}>
+                          <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                            </svg>
+                          </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            course.isPublished 
-                              ? 'bg-green-100 text-green-700 border border-green-200' 
-                              : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                          }`}>
-                            {course.isPublished ? 'Published' : 'Draft'}
-                          </span>
-                          {course.rating && (
-                            <div className="flex items-center text-sm text-gray-600">
-                              <svg className="w-4 h-4 text-yellow-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9.049 2.927c.3-.921 0-1.601.567-1.86 1.409a7.011 7.011 0 01-2.516-2.976 7.21 7.21 0 01-2.516-2.976c.3-.922 0-1.601.567-1.86 1.409l-2.8 2.034a1 1 0 00-1.175 0l-2.8-2.034a1 1 0 00-1.176 0L5.521 9.509a1 1 0 00.366.516L8.653 18.48a1 1 0 001.176 0l2.8-2.034c.3-.921 0-1.601.567-1.86 1.409z" />
-                              </svg>
-                              {course.rating}
-                            </div>
-                          )}
+                      </div>
+                      
+                      {/* Course Info */}
+                      <div className="flex-1 space-y-3 cursor-pointer" onClick={() => router.push(`/dashboard/courses/${course._id}`)}>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-1">{course.title}</h3>
+                          <p className="text-sm text-gray-600 mb-2">{course.description}</p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500">
+                            <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium">{course.category}</span>
+                            <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{course.difficulty}</span>
+                            <span>{course.duration}</span>
+                            <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                              {course.moduleCount || 0} modules
+                            </span>
+                          </div>
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              course.isPublished 
+                                ? 'bg-green-100 text-green-700 border border-green-200' 
+                                : 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                            }`}>
+                              {course.isPublished ? 'Published' : 'Draft'}
+                            </span>
+                            {course.rating && (
+                              <div className="flex items-center text-sm text-gray-600">
+                                <svg className="w-4 h-4 text-yellow-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 0-1.601.567-1.86 1.409a7.011 7.011 0 01-2.516-2.976 7.21 7.21 0 01-2.516-2.976c.3-.922 0-1.601.567-1.86 1.409l-2.8 2.034a1 1 0 00-1.175 0l-2.8-2.034a1 1 0 00-1.176 0L5.521 9.509a1 1 0 00.366.516L8.653 18.48a1 1 0 001.176 0l2.8-2.034c.3-.921 0-1.601.567-1.86 1.409z" />
+                                </svg>
+                                {course.rating}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>

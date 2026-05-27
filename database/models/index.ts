@@ -3,6 +3,7 @@ import CourseModel from './Course';
 import ModuleModel from './Module';
 import ProgressModel from './Progress';
 import RecommendationModel from './Recommendation';
+import AssessmentModel from './Assessment';
 
 export {
   UserModel,
@@ -10,6 +11,7 @@ export {
   ModuleModel,
   ProgressModel,
   RecommendationModel,
+  AssessmentModel,
 };
 
 export default {
@@ -18,4 +20,5 @@ export default {
   Module: ModuleModel,
   Progress: ProgressModel,
   Recommendation: RecommendationModel,
+  Assessment: AssessmentModel,
 };
