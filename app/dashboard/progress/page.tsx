@@ -1,74 +1,196 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface CourseProgress {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  thumbnail?: string;
+  moduleCount?: number;
+  progress: number;
+  completedModules: number;
+  totalModules: number;
+  lastAccessed: string;
+}
 
 export default function ProgressPage() {
   const { data: session } = useSession();
+  const router = useRouter();
+  const [courses, setCourses] = useState<CourseProgress[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const progressData = [
-    {
-      id: 1,
-      course: 'Introduction to Web Development',
-      completedLessons: 12,
-      totalLessons: 16,
-      timeSpent: '8h 30m',
-      lastAccessed: '2 days ago',
-      status: 'in-progress'
-    },
-    {
-      id: 2,
-      course: 'Advanced React Development',
-      completedLessons: 4,
-      totalLessons: 20,
-      timeSpent: '3h 15m',
-      lastAccessed: '1 week ago',
-      status: 'in-progress'
-    },
-    {
-      id: 3,
-      course: 'Database Design Fundamentals',
-      completedLessons: 0,
-      totalLessons: 12,
-      timeSpent: '0h 0m',
-      lastAccessed: 'Not started',
-      status: 'not-started'
+  useEffect(() => {
+    fetchCoursesWithProgress();
+  }, []);
+
+  const fetchCoursesWithProgress = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch published courses from database
+      const response = await fetch('/api/courses?published=true');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch courses');
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Fetch progress for each course
+        const coursesWithProgress = await Promise.all(
+          data.courses.map(async (course: any) => {
+            try {
+              const progressResponse = await fetch(`/api/progress?courseId=${course._id}`);
+              const progressData = await progressResponse.json();
+              
+              if (progressData.success && progressData.progress.length > 0) {
+                const completedModules = progressData.progress.filter(
+                  (p: any) => p.status === 'completed'
+                ).length;
+                
+                const totalModules = course.moduleCount || 0;
+                const progressPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
+                
+                return {
+                  _id: course._id,
+                  title: course.title,
+                  description: course.description,
+                  category: course.category,
+                  difficulty: course.difficulty,
+                  thumbnail: course.thumbnail,
+                  moduleCount: course.moduleCount,
+                  progress: progressPercentage,
+                  completedModules,
+                  totalModules,
+                  lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+                };
+              }
+              
+              // Fetch modules to get total count even without progress
+              const modulesResponse = await fetch(`/api/modules?courseId=${course._id}`);
+              const modulesData = await modulesResponse.json();
+              const totalModules = modulesData.success ? modulesData.modules.length : 0;
+              
+              return {
+                _id: course._id,
+                title: course.title,
+                description: course.description,
+                category: course.category,
+                difficulty: course.difficulty,
+                thumbnail: course.thumbnail,
+                moduleCount: course.moduleCount,
+                progress: 0,
+                completedModules: 0,
+                totalModules,
+                lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+              };
+            } catch (error) {
+              console.error('Error fetching progress for course:', course._id, error);
+              return {
+                _id: course._id,
+                title: course.title,
+                description: course.description,
+                category: course.category,
+                difficulty: course.difficulty,
+                thumbnail: course.thumbnail,
+                moduleCount: course.moduleCount,
+                progress: 0,
+                completedModules: 0,
+                totalModules: 0,
+                lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+              };
+            }
+          })
+        );
+        
+        setCourses(coursesWithProgress);
+      }
+    } catch (error) {
+      console.error('Error fetching courses with progress:', error);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
+  // Calculate overall stats
   const overallStats = {
-    totalCourses: 3,
-    completedCourses: 0,
-    inProgressCourses: 2,
-    totalTimeSpent: '11h 45m',
-    averageProgress: 35
+    totalCourses: courses.length,
+    completedCourses: courses.filter(c => c.progress === 100).length,
+    inProgressCourses: courses.filter(c => c.progress > 0 && c.progress < 100).length,
+    totalTimeSpent: '0h 0m', // Would need timeSpent field in progress model
+    averageProgress: courses.length > 0 
+      ? Math.round(courses.reduce((sum, c) => sum + c.progress, 0) / courses.length) 
+      : 0
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'in-progress':
-        return 'bg-blue-100 text-blue-700 border-blue-200';
-      case 'not-started':
-        return 'bg-slate-100 text-slate-700 border-slate-200';
-      default:
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+  const getStatusColor = (progress: number) => {
+    if (progress === 100) {
+      return 'bg-green-100 text-green-700 border-green-200';
+    } else if (progress > 0) {
+      return 'bg-blue-100 text-blue-700 border-blue-200';
+    } else {
+      return 'bg-slate-100 text-slate-700 border-slate-200';
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return 'Completed';
-      case 'in-progress':
-        return 'In Progress';
-      case 'not-started':
-        return 'Not Started';
-      default:
-        return 'Unknown';
+  const getStatusText = (progress: number) => {
+    if (progress === 100) {
+      return 'Completed';
+    } else if (progress > 0) {
+      return 'In Progress';
+    } else {
+      return 'Not Started';
     }
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <Skeleton className="h-9 w-64 mb-2" />
+          <Skeleton className="h-5 w-96" />
+        </div>
+
+        {/* Stats Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-6 w-20 mb-2" />
+                <Skeleton className="h-8 w-16" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Course Progress Skeleton */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-48" />
+          </CardHeader>
+          <CardContent>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="border-b border-slate-200 pb-6 last:border-b-0 last:pb-0">
+                <Skeleton className="h-6 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2 mb-4" />
+                <Skeleton className="h-2 w-full mb-4" />
+                <Skeleton className="h-8 w-32" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -168,24 +290,23 @@ export default function ProgressPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {progressData.map((course) => {
-              const progressPercentage = Math.round((course.completedLessons / course.totalLessons) * 100);
+            {courses.map((course: CourseProgress) => {
+              const progressPercentage = course.progress;
+              const status = progressPercentage === 100 ? 'completed' : progressPercentage > 0 ? 'in-progress' : 'not-started';
               
               return (
-                <div key={course.id} className="border-b border-slate-200 pb-6 last:border-b-0 last:pb-0">
+                <div key={course._id} className="border-b border-slate-200 pb-6 last:border-b-0 last:pb-0">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{course.course}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 mb-2">{course.title}</h3>
                       <div className="flex items-center space-x-4 text-sm text-slate-600">
-                        <span>{course.completedLessons} of {course.totalLessons} lessons completed</span>
-                        <span>•</span>
-                        <span>{course.timeSpent} spent</span>
+                        <span>{course.completedModules} of {course.totalModules} modules completed</span>
                         <span>•</span>
                         <span>Last accessed {course.lastAccessed}</span>
                       </div>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(course.status)}`}>
-                      {getStatusText(course.status)}
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(progressPercentage)}`}>
+                      {getStatusText(progressPercentage)}
                     </span>
                   </div>
 
@@ -198,9 +319,9 @@ export default function ProgressPage() {
                     <div className="w-full bg-slate-200 rounded-full h-2">
                       <div 
                         className={`h-2 rounded-full transition-all duration-300 ${
-                          course.status === 'completed' 
+                          progressPercentage === 100 
                             ? 'bg-gradient-to-r from-green-500 to-green-600'
-                            : course.status === 'in-progress'
+                            : progressPercentage > 0
                             ? 'bg-gradient-to-r from-blue-500 to-blue-600'
                             : 'bg-gradient-to-r from-slate-400 to-slate-500'
                         }`}
@@ -211,22 +332,34 @@ export default function ProgressPage() {
 
                   {/* Action Buttons */}
                   <div className="flex space-x-3">
-                    {course.status === 'not-started' ? (
-                      <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+                    {status === 'not-started' ? (
+                      <button
+                        onClick={() => router.push(`/dashboard/courses/${course._id}`)}
+                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                      >
                         Start Course
                       </button>
-                    ) : course.status === 'in-progress' ? (
+                    ) : status === 'in-progress' ? (
                       <>
-                        <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+                        <button
+                          onClick={() => router.push(`/dashboard/courses/${course._id}`)}
+                          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                        >
                           Continue Learning
                         </button>
-                        <button className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200">
+                        <button
+                          onClick={() => router.push(`/dashboard/courses/${course._id}`)}
+                          className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
+                        >
                           View Details
                         </button>
                       </>
                     ) : (
                       <>
-                        <button className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200">
+                        <button
+                          onClick={() => router.push(`/dashboard/courses/${course._id}`)}
+                          className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
+                        >
                           Review Course
                         </button>
                         <button className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
@@ -238,6 +371,9 @@ export default function ProgressPage() {
                 </div>
               );
             })}
+            {courses.length === 0 && (
+              <p className="text-center text-slate-600 py-8">No courses available. Start learning today!</p>
+            )}
           </div>
         </CardContent>
       </Card>
