@@ -30,19 +30,37 @@ export default function UsersPage() {
     role: 'student',
     password: '',
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0,
+  });
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [currentPage, filterRole]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/users');
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+      });
+      
+      if (filterRole !== 'all') {
+        params.append('role', filterRole);
+      }
+      
+      const response = await fetch(`/api/users?${params.toString()}`);
       const data = await response.json();
       
       if (data.users) {
         setUsers(data.users);
+        setPagination(data.pagination || { page: 1, limit: 10, total: 0, pages: 0 });
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -164,13 +182,6 @@ export default function UsersPage() {
     setShowEditModal(true);
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = filterRole === 'all' || user.role === filterRole;
-    return matchesSearch && matchesRole;
-  });
-
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin':
@@ -198,7 +209,7 @@ export default function UsersPage() {
   };
 
   const stats = {
-    totalUsers: users.length,
+    totalUsers: pagination.total,
     activeUsers: users.filter(u => u.isActive).length,
     students: users.filter(u => u.role === 'student').length,
     instructors: users.filter(u => u.role === 'instructor').length
@@ -369,7 +380,7 @@ export default function UsersPage() {
       {/* Users Table */}
       <Card className="border-slate-200/60">
         <CardHeader>
-          <CardTitle className="text-slate-900">Users ({filteredUsers.length})</CardTitle>
+          <CardTitle className="text-slate-900">Users ({pagination.total})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -385,7 +396,7 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((user) => (
+                {users.map((user) => (
                   <tr key={user._id} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-4 px-4">
                       <div>
@@ -442,7 +453,7 @@ export default function UsersPage() {
             </table>
           </div>
 
-          {filteredUsers.length === 0 && (
+          {users.length === 0 && (
             <div className="text-center py-12">
               <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -451,6 +462,57 @@ export default function UsersPage() {
               </div>
               <h3 className="text-lg font-medium text-slate-900 mb-2">No users found</h3>
               <p className="text-slate-600">Try adjusting your search or filters</p>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-200">
+              <div className="text-sm text-slate-600">
+                Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, pagination.total)} of {pagination.total} users
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: Math.min(pagination.pages, 5) }, (_, i) => {
+                  let pageNum;
+                  if (pagination.pages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= pagination.pages - 2) {
+                    pageNum = pagination.pages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-2 border rounded-lg text-sm font-medium ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'border-slate-300 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, pagination.pages))}
+                  disabled={currentPage === pagination.pages}
+                  className="px-3 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           )}
         </CardContent>

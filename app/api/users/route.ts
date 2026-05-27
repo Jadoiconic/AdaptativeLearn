@@ -69,7 +69,7 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
     
-    const { id, name, email, role, avatar, status } = body;
+    const { id, name, email, role, avatar, isActive } = body;
     
     if (!id) {
       return NextResponse.json(
@@ -83,7 +83,7 @@ export async function PUT(request: NextRequest) {
     if (email) updateData.email = email.toLowerCase();
     if (role && session.user.role === 'admin') updateData.role = role;
     if (avatar) updateData.avatar = avatar;
-    if (status && session.user.role === 'admin') updateData.status = status;
+    if (typeof isActive === 'boolean' && session.user.role === 'admin') updateData.isActive = isActive;
     
     const user = await UserModel.findByIdAndUpdate(
       id,
