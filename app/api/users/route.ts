@@ -3,6 +3,71 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
 import { UserModel } from '@/database/models';
+import bcrypt from 'bcryptjs';
+
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    const body = await request.json();
+    
+    if (!session || session.user.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Unauthorized. Admin access required.' },
+        { status: 403 }
+      );
+    }
+
+    await connectDB();
+    
+    const { name, email, role, password } = body;
+    
+    if (!name || !email || !password) {
+      return NextResponse.json(
+        { error: 'Name, email, and password are required' },
+        { status: 400 }
+      );
+    }
+    
+    // Check if user already exists
+    const existingUser = await UserModel.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'User with this email already exists' },
+        { status: 409 }
+      );
+    }
+    
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create new user
+    const newUser = await UserModel.create({
+      name,
+      email: email.toLowerCase(),
+      role: role || 'student',
+      password: hashedPassword,
+      isActive: true,
+    });
+    
+    return NextResponse.json({
+      message: 'User created successfully',
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        isActive: newUser.isActive,
+        createdAt: newUser.createdAt,
+      },
+    }, { status: 201 });
+  } catch (error) {
+    console.error('Create user error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
