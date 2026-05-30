@@ -32,6 +32,7 @@ export default function UsersPage() {
     password: '',
   });
   const [resetPasswordData, setResetPasswordData] = useState({
+    currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
@@ -179,6 +180,13 @@ export default function UsersPage() {
   const handleResetPassword = async () => {
     if (!selectedUser) return;
     
+    // If resetting own password, require current password
+    const isOwnPassword = session?.user?.id === selectedUser._id;
+    if (isOwnPassword && !resetPasswordData.currentPassword) {
+      alert('Current password is required');
+      return;
+    }
+    
     if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
       alert('Passwords do not match');
       return;
@@ -190,19 +198,26 @@ export default function UsersPage() {
     }
     
     try {
+      const requestBody: any = {
+        id: selectedUser._id,
+        password: resetPasswordData.newPassword,
+      };
+      
+      // Include current password if resetting own password
+      if (isOwnPassword) {
+        requestBody.currentPassword = resetPasswordData.currentPassword;
+      }
+      
       const response = await fetch('/api/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: selectedUser._id,
-          password: resetPasswordData.newPassword,
-        }),
+        body: JSON.stringify(requestBody),
       });
       
       if (response.ok) {
         setShowResetPasswordModal(false);
         setSelectedUser(null);
-        setResetPasswordData({ newPassword: '', confirmPassword: '' });
+        setResetPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
         alert('Password reset successfully');
       } else {
         const error = await response.json();
@@ -216,7 +231,7 @@ export default function UsersPage() {
 
   const openResetPasswordModal = (user: User) => {
     setSelectedUser(user);
-    setResetPasswordData({ newPassword: '', confirmPassword: '' });
+    setResetPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
     setShowResetPasswordModal(true);
   };
 
@@ -473,12 +488,14 @@ export default function UsersPage() {
                         >
                           Edit
                         </button>
-                        <button 
-                          onClick={() => openResetPasswordModal(user)}
-                          className="text-purple-600 hover:text-purple-800 text-sm font-medium"
-                        >
-                          Reset Password
-                        </button>
+                        {session?.user?.id !== user._id && (
+                          <button 
+                            onClick={() => openResetPasswordModal(user)}
+                            className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                          >
+                            Reset Password
+                          </button>
+                        )}
                         <button 
                           onClick={() => handleDeleteUser(user._id)}
                           className="text-red-600 hover:text-red-800 text-sm font-medium"
@@ -676,7 +693,7 @@ export default function UsersPage() {
                   <select
                     value={formData.role}
                     onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="student">Student</option>
                     <option value="instructor">Instructor</option>
@@ -709,20 +726,31 @@ export default function UsersPage() {
 
       {/* Reset Password Modal */}
       {showResetPasswordModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-gray-100 bg-opacity-90 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4 bg-white">
             <CardHeader>
               <CardTitle className="text-slate-900">Reset Password for {selectedUser.name}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
+                {session?.user?.id === selectedUser._id && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Current Password</label>
+                    <input
+                      type="password"
+                      value={resetPasswordData.currentPassword}
+                      onChange={(e) => setResetPasswordData({ ...resetPasswordData, currentPassword: e.target.value })}
+                      className="w-full px-3 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
                   <input
                     type="password"
                     value={resetPasswordData.newPassword}
                     onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div>
@@ -731,7 +759,7 @@ export default function UsersPage() {
                     type="password"
                     value={resetPasswordData.confirmPassword}
                     onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="flex gap-2 pt-4">
@@ -745,7 +773,7 @@ export default function UsersPage() {
                     onClick={() => {
                       setShowResetPasswordModal(false);
                       setSelectedUser(null);
-                      setResetPasswordData({ newPassword: '', confirmPassword: '' });
+                      setResetPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
                     }}
                     className="flex-1 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
                   >

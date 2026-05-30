@@ -25,6 +25,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
 
   useEffect(() => {
     fetchProfile();
@@ -64,6 +70,47 @@ export default function ProfilePage() {
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving profile:', error);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!passwordData.currentPassword) {
+      alert('Current password is required');
+      return;
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: session?.user?.id,
+          currentPassword: passwordData.currentPassword,
+          password: passwordData.newPassword,
+        }),
+      });
+      
+      if (response.ok) {
+        setShowPasswordModal(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        alert('Password reset successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to reset password');
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Failed to reset password');
     }
   };
 
@@ -406,7 +453,11 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="pt-4 mt-4 border-t border-gray-200">
-                  <Button variant="outline" className="w-full mb-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full mb-2"
+                    onClick={() => setShowPasswordModal(true)}
+                  >
                     Change Password
                   </Button>
                   <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">
@@ -418,6 +469,66 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
+
+      {/* Password Reset Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-transparent bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4 bg-white">
+            <CardHeader>
+              <CardTitle className="text-gray-900">Change Password</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={handlePasswordReset}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    Change Password
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowPasswordModal(false);
+                      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

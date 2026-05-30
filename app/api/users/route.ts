@@ -134,7 +134,7 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
     
-    const { id, name, email, role, avatar, isActive, password } = body;
+    const { id, name, email, role, avatar, isActive, password, currentPassword } = body;
     
     if (!id) {
       return NextResponse.json(
@@ -149,7 +149,37 @@ export async function PUT(request: NextRequest) {
     if (role && session.user.role === 'admin') updateData.role = role;
     if (avatar) updateData.avatar = avatar;
     if (typeof isActive === 'boolean' && session.user.role === 'admin') updateData.isActive = isActive;
-    if (password && session.user.role === 'admin') {
+    
+    // If user is changing their own password, verify current password first
+    if (password && session.user.id === body.id) {
+      if (!currentPassword) {
+        return NextResponse.json(
+          { error: 'Current password is required' },
+          { status: 400 }
+        );
+      }
+      
+      // Get user to verify current password
+      const user = await UserModel.findById(id);
+      if (!user) {
+        return NextResponse.json(
+          { error: 'User not found' },
+          { status: 404 }
+        );
+      }
+      
+      // Verify current password
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return NextResponse.json(
+          { error: 'Current password is incorrect' },
+          { status: 401 }
+        );
+      }
+      
+      updateData.password = await bcrypt.hash(password, 10);
+    } else if (password && session.user.role === 'admin') {
+      // Admin can reset password without current password
       updateData.password = await bcrypt.hash(password, 10);
     }
     
