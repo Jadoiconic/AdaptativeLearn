@@ -134,7 +134,7 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
     
-    const { id, name, email, role, avatar, isActive } = body;
+    const { id, name, email, role, avatar, isActive, password } = body;
     
     if (!id) {
       return NextResponse.json(
@@ -149,6 +149,9 @@ export async function PUT(request: NextRequest) {
     if (role && session.user.role === 'admin') updateData.role = role;
     if (avatar) updateData.avatar = avatar;
     if (typeof isActive === 'boolean' && session.user.role === 'admin') updateData.isActive = isActive;
+    if (password && session.user.role === 'admin') {
+      updateData.password = await bcrypt.hash(password, 10);
+    }
     
     const user = await UserModel.findByIdAndUpdate(
       id,

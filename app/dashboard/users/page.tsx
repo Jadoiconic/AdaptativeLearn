@@ -23,12 +23,17 @@ export default function UsersPage() {
   const [filterRole, setFilterRole] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     role: 'student',
     password: '',
+  });
+  const [resetPasswordData, setResetPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: '',
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -169,6 +174,50 @@ export default function UsersPage() {
       console.error('Error updating user status:', error);
       alert('Failed to update user status');
     }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUser) return;
+    
+    if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    
+    if (resetPasswordData.newPassword.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selectedUser._id,
+          password: resetPasswordData.newPassword,
+        }),
+      });
+      
+      if (response.ok) {
+        setShowResetPasswordModal(false);
+        setSelectedUser(null);
+        setResetPasswordData({ newPassword: '', confirmPassword: '' });
+        alert('Password reset successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to reset password');
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Failed to reset password');
+    }
+  };
+
+  const openResetPasswordModal = (user: User) => {
+    setSelectedUser(user);
+    setResetPasswordData({ newPassword: '', confirmPassword: '' });
+    setShowResetPasswordModal(true);
   };
 
   const openEditModal = (user: User) => {
@@ -425,6 +474,12 @@ export default function UsersPage() {
                           Edit
                         </button>
                         <button 
+                          onClick={() => openResetPasswordModal(user)}
+                          className="text-purple-600 hover:text-purple-800 text-sm font-medium"
+                        >
+                          Reset Password
+                        </button>
+                        <button 
                           onClick={() => handleDeleteUser(user._id)}
                           className="text-red-600 hover:text-red-800 text-sm font-medium"
                         >
@@ -640,6 +695,57 @@ export default function UsersPage() {
                       setShowEditModal(false);
                       setSelectedUser(null);
                       setFormData({ name: '', email: '', role: 'student', password: '' });
+                    }}
+                    className="flex-1 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Reset Password Modal */}
+      {showResetPasswordModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle className="text-slate-900">Reset Password for {selectedUser.name}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    value={resetPasswordData.newPassword}
+                    onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={resetPasswordData.confirmPassword}
+                    onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={handleResetPassword}
+                    className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg transition-all duration-200"
+                  >
+                    Reset Password
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowResetPasswordModal(false);
+                      setSelectedUser(null);
+                      setResetPasswordData({ newPassword: '', confirmPassword: '' });
                     }}
                     className="flex-1 px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
                   >
