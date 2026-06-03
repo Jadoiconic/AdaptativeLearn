@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
-import { ProgressModel, ModuleModel, CourseModel, CertificateModel } from '@/database/models';
+import { ProgressModel, ModuleModel, CourseModel, CertificateModel, RecommendationModel } from '@/database/models';
 
 // Generate unique certificate number
 function generateCertificateNumber(): string {
@@ -140,6 +140,15 @@ export async function POST(request: NextRequest) {
     
     // Check if all modules in the course are completed
     if (status === 'completed') {
+      // Remove AI recommendations if student passed the module (score >= 60)
+      if (score !== undefined && score >= 60) {
+        await RecommendationModel.deleteMany({
+          userId,
+          suggestedModules: moduleId,
+        });
+        console.log(`Removed AI recommendations for user ${userId} for module ${moduleId} after passing`);
+      }
+      
       const allModules = await ModuleModel.find({ courseId });
       const allProgress = await ProgressModel.find({ userId, courseId });
       
