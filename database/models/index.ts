@@ -5,6 +5,7 @@ import ProgressModel from './Progress';
 import RecommendationModel from './Recommendation';
 import AssessmentModel from './Assessment';
 import ActivityModel from './Activity';
+import CertificateModel from './Certificate';
 
 export {
   UserModel,
@@ -14,6 +15,7 @@ export {
   RecommendationModel,
   AssessmentModel,
   ActivityModel,
+  CertificateModel,
 };
 
 export default {
@@ -24,4 +26,5 @@ export default {
   Recommendation: RecommendationModel,
   Assessment: AssessmentModel,
   Activity: ActivityModel,
+  Certificate: CertificateModel,
 };

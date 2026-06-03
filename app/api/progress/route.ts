@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
-import { ProgressModel, ModuleModel, CourseModel } from '@/database/models';
+import { ProgressModel, ModuleModel, CourseModel, CertificateModel } from '@/database/models';
+
+// Generate unique certificate number
+function generateCertificateNumber(): string {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+  return `CERT-${timestamp}-${random}`;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -130,6 +137,50 @@ export async function POST(request: NextRequest) {
     const populatedProgress = await ProgressModel.findById(progress._id)
       .populate('moduleId', 'title type order')
       .populate('courseId', 'title category');
+    
+    // Check if all modules in the course are completed
+    if (status === 'completed') {
+      const allModules = await ModuleModel.find({ courseId });
+      const allProgress = await ProgressModel.find({ userId, courseId });
+      
+      const completedModules = allProgress.filter(p => p.status === 'completed').length;
+      
+      if (completedModules === allModules.length) {
+        // All modules completed, check if certificate already exists
+        const existingCertificate = await CertificateModel.findOne({
+          userId,
+          courseId,
+        });
+        
+        if (!existingCertificate) {
+          // Calculate average score
+          const scores = allProgress
+            .filter(p => p.score !== undefined && p.score !== null)
+            .map(p => p.score);
+          const averageScore = scores.length > 0 
+            ? scores.reduce((sum, score) => sum + score, 0) / scores.length 
+            : undefined;
+          
+          // Get completion date
+          const completionDate = allProgress
+            .filter(p => p.completedAt)
+            .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())[0]?.completedAt || new Date();
+          
+          // Generate certificate
+          await CertificateModel.create({
+            userId,
+            courseId,
+            certificateNumber: generateCertificateNumber(),
+            issueDate: new Date(),
+            completionDate: completionDate,
+            score: averageScore,
+            isValid: true,
+          });
+          
+          console.log(`Certificate automatically generated for user ${userId} for course ${courseId}`);
+        }
+      }
+    }
     
     return NextResponse.json(
       {
