@@ -4,6 +4,7 @@ import ModuleModel from './Module';
 import ProgressModel from './Progress';
 import RecommendationModel from './Recommendation';
 import AssessmentModel from './Assessment';
+import ActivityModel from './Activity';
 
 export {
   UserModel,
@@ -12,6 +13,7 @@ export {
   ProgressModel,
   RecommendationModel,
   AssessmentModel,
+  ActivityModel,
 };
 
 export default {
@@ -21,4 +23,5 @@ export default {
   Progress: ProgressModel,
   Recommendation: RecommendationModel,
   Assessment: AssessmentModel,
+  Activity: ActivityModel,
 };

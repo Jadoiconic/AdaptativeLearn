@@ -31,11 +31,21 @@ interface InstructorStats {
   completionRate: number;
 }
 
+interface Activity {
+  id: string;
+  activityText: string;
+  detailsText: string;
+  timeAgo: string;
+  color: string;
+  createdAt: string;
+}
+
 export default function InstructorDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
   const [stats, setStats] = useState<InstructorStats | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -76,6 +86,13 @@ export default function InstructorDashboard() {
         totalRevenue: 0,
         completionRate: 0
       });
+      
+      // Fetch recent activities
+      const activityResponse = await fetch('/api/instructor/activity');
+      if (activityResponse.ok) {
+        const activityData = await activityResponse.json();
+        setActivities(activityData.activities || []);
+      }
     } catch (error) {
       console.error('Error fetching instructor data:', error);
     } finally {
@@ -376,30 +393,20 @@ export default function InstructorDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">Alice Johnson completed module</p>
-                    <p className="text-xs text-gray-600">React Hooks - Advanced React Development</p>
-                    <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">Bob Smith enrolled in course</p>
-                    <p className="text-xs text-gray-600">JavaScript Fundamentals</p>
-                    <p className="text-xs text-gray-500 mt-1">5 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">Carol Williams submitted quiz</p>
-                    <p className="text-xs text-gray-600">Score: 85% - JavaScript Basics</p>
-                    <p className="text-xs text-gray-500 mt-1">1 day ago</p>
-                  </div>
-                </div>
+                {activities.length > 0 ? (
+                  activities.map((activity) => (
+                    <div key={activity.id} className="flex items-start gap-3">
+                      <div className={`w-2 h-2 bg-${activity.color}-500 rounded-full mt-2`}></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">{activity.activityText}</p>
+                        <p className="text-xs text-gray-600">{activity.detailsText}</p>
+                        <p className="text-xs text-gray-500 mt-1">{activity.timeAgo}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center text-gray-600 py-4">No recent activity</p>
+                )}
               </div>
             </CardContent>
           </Card>
