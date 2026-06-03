@@ -320,23 +320,24 @@ export default function ProgressPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex space-x-3">
-                    {status === 'not-started' ? (
-                      <button
-                        onClick={() => router.push(`/dashboard/courses/${course._id}`)}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
-                      >
-                        Start Course
-                      </button>
-                    ) : status === 'in-progress' ? (
-                      <>
+                  {session?.user?.role === 'student' && (
+                    <div className="flex space-x-3">
+                      {status === 'not-started' ? (
                         <button
                           onClick={() => router.push(`/dashboard/courses/${course._id}`)}
                           className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
                         >
-                          Continue Learning
+                          Start Course
                         </button>
-                        <button
+                      ) : status === 'in-progress' ? (
+                        <>
+                          <button
+                            onClick={() => router.push(`/dashboard/courses/${course._id}`)}
+                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+                          >
+                            Continue Learning
+                          </button>
+                          <button
                           onClick={() => router.push(`/dashboard/courses/${course._id}`)}
                           className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-all duration-200"
                         >
@@ -356,7 +357,8 @@ export default function ProgressPage() {
                         </button>
                       </>
                     )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               );
             })}

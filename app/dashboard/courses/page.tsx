@@ -285,9 +285,11 @@ export default function CoursesPage() {
               </div>
 
               {/* Action Button */}
-              <button className="w-full py-2 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
-                {(course.progress || 0) > 0 ? 'Continue Learning' : 'Start Course'}
-              </button>
+              {session?.user?.role === 'student' && (
+                <button className="w-full py-2 px-4 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+                  {(course.progress || 0) > 0 ? 'Continue Learning' : 'Start Course'}
+                </button>
+              )}
 
               {/* Instructor/Admin Actions */}
               {(session?.user?.role === 'instructor' || session?.user?.role === 'admin') && (
