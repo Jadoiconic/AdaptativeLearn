@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,6 +53,31 @@ export default function CourseDetailPage() {
   const [assessmentAnswers, setAssessmentAnswers] = useState<Record<number, number>>({});
   const [assessmentSubmitted, setAssessmentSubmitted] = useState(false);
   const [assessmentScore, setAssessmentScore] = useState<number | null>(null);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const getCloudinaryThumbnail = (videoUrl: string) => {
+    // Convert Cloudinary video URL to a thumbnail image URL
+    // e.g. .../video/upload/...mp4 -> .../video/upload/so_0,w_640,h_360,c_fill/...jpg
+    try {
+      return videoUrl
+        .replace('/video/upload/', '/video/upload/so_0,w_640,h_360,c_fill/')
+        .replace(/\.(mp4|mov|avi|mkv|webm)$/i, '.jpg');
+    } catch {
+      return undefined;
+    }
+  };
+
+  const toggleVideo = () => {
+    if (!videoRef.current) return;
+    if (videoRef.current.paused) {
+      videoRef.current.play();
+      setIsVideoPlaying(true);
+    } else {
+      videoRef.current.pause();
+      setIsVideoPlaying(false);
+    }
+  };
 
   useEffect(() => {
     fetchCourse();
@@ -473,9 +498,39 @@ export default function CourseDetailPage() {
                           <p className="text-sm text-slate-600 mb-2">{module.description}</p>
                           <div className="flex items-center gap-2 text-xs text-slate-500">
                             <span className="capitalize">{module.difficulty}</span>
-                            {module.videoUrl && <span>• Video</span>}
-                            {module.fileUrl && <span>• File</span>}
+                            {module.videoUrl && (
+                              <span className="flex items-center gap-1 text-red-600 font-medium">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                Video
+                              </span>
+                            )}
+                            {module.fileUrl && (
+                              <span className="flex items-center gap-1 text-blue-600 font-medium">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                PDF
+                              </span>
+                            )}
                           </div>
+                          {/* Video thumbnail preview in card */}
+                          {module.videoUrl && selectedModule?._id === module._id && (
+                            <div className="mt-3 relative rounded-lg overflow-hidden bg-black" style={{maxHeight: '140px'}}>
+                              <img
+                                src={getCloudinaryThumbnail(module.videoUrl)}
+                                alt="Video preview"
+                                className="w-full object-cover opacity-90"
+                                style={{maxHeight: '140px'}}
+                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="w-10 h-10 bg-white bg-opacity-80 rounded-full flex items-center justify-center shadow-lg">
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-slate-900 ml-0.5" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                                </div>
+                              </div>
+                              <div className="absolute bottom-0 left-0 right-0 px-3 py-1 bg-gradient-to-t from-black/60 to-transparent">
+                                <span className="text-white text-xs">Click below to watch</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -506,28 +561,69 @@ export default function CourseDetailPage() {
                 
                 {selectedModule.videoUrl && (
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900 mb-2">Video</h3>
-                    <a
-                      href={selectedModule.videoUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 text-sm"
-                    >
-                      Watch Video →
-                    </a>
+                    <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-600" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                      Module Video
+                    </h3>
+                    {/* Professional Video Player */}
+                    <div className="relative rounded-xl overflow-hidden bg-black shadow-2xl group">
+                      <video
+                        ref={videoRef}
+                        src={selectedModule.videoUrl}
+                        poster={getCloudinaryThumbnail(selectedModule.videoUrl)}
+                        className="w-full max-h-[480px] object-contain"
+                        controls
+                        preload="metadata"
+                        onPlay={() => setIsVideoPlaying(true)}
+                        onPause={() => setIsVideoPlaying(false)}
+                        onEnded={() => setIsVideoPlaying(false)}
+                        style={{
+                          background: '#000',
+                        }}
+                      />
+                      {/* Custom play overlay shown before first play */}
+                      {!isVideoPlaying && (
+                        <button
+                          onClick={toggleVideo}
+                          className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 hover:bg-black/30 transition-colors duration-200 group-hover:opacity-100"
+                          aria-label="Play video"
+                        >
+                          <div className="w-20 h-20 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-2xl transform hover:scale-110 transition-transform duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-slate-900 ml-1" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                          </div>
+                          <span className="mt-4 text-white text-sm font-medium tracking-wide drop-shadow">Click to play</span>
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-2 px-1">
+                      <span className="text-xs text-slate-500">Use the player controls to adjust volume, playback speed, and fullscreen.</span>
+                      <a
+                        href={selectedModule.videoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                        Open in new tab
+                      </a>
+                    </div>
                   </div>
                 )}
-                
+
                 {selectedModule.fileUrl && (
                   <div>
-                    <h3 className="text-sm font-semibold text-slate-900 mb-2">Resources</h3>
+                    <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      Module Resources
+                    </h3>
                     <a
                       href={selectedModule.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 text-sm"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium transition-colors duration-150"
                     >
-                      Download File →
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      Download PDF
                     </a>
                   </div>
                 )}
