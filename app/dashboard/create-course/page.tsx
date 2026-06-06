@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { uploadImagesToCloudinary } from '@/utils/uploadToCloudinary';
 
 export default function CreateCoursePage() {
   const { data: session } = useSession();
@@ -17,6 +18,10 @@ export default function CreateCoursePage() {
     objectives: [''],
     requirements: ['']
   });
+  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string>('');
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
   const categories = [
     'Web Development',
@@ -64,30 +69,20 @@ export default function CreateCoursePage() {
     }));
   };
 
+  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setThumbnailFile(file);
+    setThumbnailPreview(URL.createObjectURL(file));
+  };
+
   const handleSubmit = async (e: React.FormEvent, publish: boolean = false) => {
     e.preventDefault();
     
-    // Form validation
-    if (!formData.title.trim()) {
-      alert('Please enter a course title');
-      return;
-    }
-    
-    if (!formData.description.trim()) {
-      alert('Please enter a course description');
-      return;
-    }
-    
-    if (!formData.category) {
-      alert('Please select a category');
-      return;
-    }
-    
-    if (!formData.duration.trim()) {
-      alert('Please enter a duration');
-      return;
-    }
-    
+    if (!formData.title.trim()) { alert('Please enter a course title'); return; }
+    if (!formData.description.trim()) { alert('Please enter a course description'); return; }
+    if (!formData.category) { alert('Please select a category'); return; }
+    if (!formData.duration.trim()) { alert('Please enter a duration'); return; }
     if (publish) {
       const validObjectives = formData.objectives.filter(obj => obj.trim() !== '');
       if (validObjectives.length === 0) {
@@ -95,13 +90,30 @@ export default function CreateCoursePage() {
         return;
       }
     }
-    
+
+    let thumbnailUrl = formData.thumbnail;
+
+    // Upload thumbnail to Cloudinary if a file was selected
+    if (thumbnailFile) {
+      setUploadingThumbnail(true);
+      try {
+        const urls = await uploadImagesToCloudinary([thumbnailFile], {
+          folder: 'adaptativelearn/courses/thumbnails',
+        });
+        thumbnailUrl = urls[0];
+      } catch (err) {
+        console.error('Thumbnail upload error:', err);
+        alert('Failed to upload thumbnail. Please try again.');
+        setUploadingThumbnail(false);
+        return;
+      }
+      setUploadingThumbnail(false);
+    }
+
     try {
       const response = await fetch('/api/courses', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: formData.title,
           description: formData.description,
@@ -109,7 +121,7 @@ export default function CreateCoursePage() {
           difficulty: formData.level,
           duration: formData.duration,
           price: formData.price ? parseFloat(formData.price) : 0,
-          thumbnail: formData.thumbnail,
+          thumbnail: thumbnailUrl,
           objectives: formData.objectives.filter(obj => obj.trim() !== ''),
           requirements: formData.requirements.filter(req => req.trim() !== ''),
           isPublished: publish,
@@ -121,10 +133,6 @@ export default function CreateCoursePage() {
         throw new Error(error.error || 'Failed to create course');
       }
 
-      const result = await response.json();
-      console.log('Course created successfully:', result);
-      
-      // Redirect to instructor dashboard or course details
       window.location.href = '/dashboard/instructor';
     } catch (error) {
       console.error('Error creating course:', error);
@@ -254,18 +262,58 @@ export default function CreateCoursePage() {
                 />
               </div>
 
+              {/* Thumbnail Upload */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Thumbnail URL
+                  Course Thumbnail
                 </label>
                 <input
-                  type="url"
-                  name="thumbnail"
-                  value={formData.thumbnail}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="https://example.com/thumbnail.jpg"
+                  ref={thumbnailInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleThumbnailChange}
                 />
+                {thumbnailPreview ? (
+                  <div className="relative">
+                    <img
+                      src={thumbnailPreview}
+                      alt="Thumbnail preview"
+                      className="w-full h-48 object-cover rounded-lg border border-slate-200"
+                    />
+                    <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors rounded-lg flex items-center justify-center opacity-0 hover:opacity-100">
+                      <button
+                        type="button"
+                        onClick={() => thumbnailInputRef.current?.click()}
+                        className="bg-white text-slate-800 text-sm font-medium px-4 py-2 rounded-lg shadow hover:bg-slate-50"
+                      >
+                        Change Image
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => thumbnailInputRef.current?.click()}
+                    className="w-full h-48 border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-lg flex flex-col items-center justify-center gap-3 text-slate-500 hover:text-blue-600 hover:bg-blue-50/50 transition-all duration-200 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <div className="text-center">
+                      <p className="font-medium text-sm">Click to upload thumbnail</p>
+                      <p className="text-xs text-slate-400 mt-1">PNG, JPG, WEBP — recommended 1280×720</p>
+                    </div>
+                  </button>
+                )}
+                {thumbnailFile && (
+                  <p className="text-xs text-slate-500 mt-1.5 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    {thumbnailFile.name} — will upload on save
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -355,16 +403,18 @@ export default function CreateCoursePage() {
             <button
               type="button"
               onClick={handleSaveDraft}
-              className="px-6 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-colors"
+              disabled={uploadingThumbnail}
+              className="px-6 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save as Draft
+              {uploadingThumbnail ? 'Uploading…' : 'Save as Draft'}
             </button>
             <button
               type="button"
               onClick={handlePublish}
-              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+              disabled={uploadingThumbnail}
+              className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Publish Course
+              {uploadingThumbnail ? 'Uploading thumbnail…' : 'Publish Course'}
             </button>
           </div>
         </div>
