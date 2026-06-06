@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { uploadVideosToCloudinary, uploadRawToCloudinary } from '@/utils/uploadToCloudinary';
 
 interface Module {
   _id: string;
@@ -56,6 +57,16 @@ export default function ModulesPage() {
     fileUrl: '',
     isPublished: false,
   });
+
+  // File upload state
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
+  const [pdfUploadProgress, setPdfUploadProgress] = useState(0);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchCourses();
@@ -147,6 +158,10 @@ export default function ModulesPage() {
         fileUrl: '',
         isPublished: false,
       });
+      setVideoFile(null);
+      setPdfFile(null);
+      setVideoUploadProgress(0);
+      setPdfUploadProgress(0);
     } catch (error) {
       console.error('Error creating module:', error);
       alert('Failed to create module');
@@ -273,7 +288,8 @@ export default function ModulesPage() {
     setShowCreateModal(true);
   };
 
-  const handleUpdateModule = async () => {
+  const handleUpdateModule = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!selectedModuleForAssessment) return;
 
     try {
@@ -298,9 +314,55 @@ export default function ModulesPage() {
       setShowCreateModal(false);
       fetchModules(selectedCourse);
       setSelectedModuleForAssessment(null);
+      setVideoFile(null);
+      setPdfFile(null);
+      setVideoUploadProgress(0);
+      setPdfUploadProgress(0);
     } catch (error) {
       console.error('Error updating module:', error);
       alert('Failed to update module');
+    }
+  };
+
+  const handleVideoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoFile(file);
+    setUploadingVideo(true);
+    setVideoUploadProgress(0);
+    try {
+      const urls = await uploadVideosToCloudinary([file], {
+        folder: 'adaptativelearn/modules/videos',
+        onProgress: setVideoUploadProgress,
+      });
+      setFormData((prev) => ({ ...prev, videoUrl: urls[0] }));
+    } catch (err) {
+      console.error('Video upload error:', err);
+      alert('Failed to upload video. Please try again.');
+      setVideoFile(null);
+    } finally {
+      setUploadingVideo(false);
+    }
+  };
+
+  const handlePdfFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPdfFile(file);
+    setUploadingPdf(true);
+    setPdfUploadProgress(0);
+    try {
+      const urls = await uploadRawToCloudinary([file], {
+        folder: 'adaptativelearn/modules/files',
+        onProgress: setPdfUploadProgress,
+      });
+      setFormData((prev) => ({ ...prev, fileUrl: urls[0] }));
+    } catch (err) {
+      console.error('PDF upload error:', err);
+      alert('Failed to upload PDF. Please try again.');
+      setPdfFile(null);
+    } finally {
+      setUploadingPdf(false);
     }
   };
 
@@ -540,26 +602,86 @@ export default function ModulesPage() {
                   </select>
                 </div>
 
+                {/* Video Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Video URL</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Video</label>
                   <input
-                    type="url"
-                    value={formData.videoUrl}
-                    onChange={(e) => setFormData({...formData, videoUrl: e.target.value})}
-                    className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/video"
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={handleVideoFileChange}
                   />
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => videoInputRef.current?.click()}
+                      disabled={uploadingVideo}
+                      className="flex items-center gap-2 border-slate-300 text-slate-700 hover:bg-slate-50"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10l4.553-2.069A1 1 0 0 1 21 8.845v6.31a1 1 0 0 1-1.447.894L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z"/></svg>
+                      {uploadingVideo ? `Uploading… ${videoUploadProgress}%` : 'Browse Video'}
+                    </Button>
+                    {videoFile && !uploadingVideo && (
+                      <span className="text-sm text-slate-600 truncate max-w-[200px]">{videoFile.name}</span>
+                    )}
+                    {formData.videoUrl && !uploadingVideo && (
+                      <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Uploaded
+                      </span>
+                    )}
+                  </div>
+                  {uploadingVideo && (
+                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${videoUploadProgress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
 
+                {/* PDF Upload */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">File URL</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">PDF File</label>
                   <input
-                    type="url"
-                    value={formData.fileUrl}
-                    onChange={(e) => setFormData({...formData, fileUrl: e.target.value})}
-                    className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="https://example.com/file"
+                    ref={pdfInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    className="hidden"
+                    onChange={handlePdfFileChange}
                   />
+                  <div className="flex items-center gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => pdfInputRef.current?.click()}
+                      disabled={uploadingPdf}
+                      className="flex items-center gap-2 border-slate-300 text-slate-700 hover:bg-slate-50"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      {uploadingPdf ? `Uploading… ${pdfUploadProgress}%` : 'Browse PDF'}
+                    </Button>
+                    {pdfFile && !uploadingPdf && (
+                      <span className="text-sm text-slate-600 truncate max-w-[200px]">{pdfFile.name}</span>
+                    )}
+                    {formData.fileUrl && !uploadingPdf && (
+                      <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Uploaded
+                      </span>
+                    )}
+                  </div>
+                  {uploadingPdf && (
+                    <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
+                      <div
+                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${pdfUploadProgress}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex items-center">
@@ -584,8 +706,16 @@ export default function ModulesPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
-                  Create Module
+                <Button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={uploadingVideo || uploadingPdf}
+                >
+                  {uploadingVideo || uploadingPdf
+                    ? 'Uploading media…'
+                    : selectedModuleForAssessment
+                    ? 'Update Module'
+                    : 'Create Module'}
                 </Button>
               </div>
             </form>

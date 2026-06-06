@@ -18,6 +18,7 @@ interface CourseProgress {
   completedModules: number;
   totalModules: number;
   lastAccessed: string;
+  timeSpent?: number;
 }
 
 export default function ProgressPage() {
@@ -322,6 +323,11 @@ export default function ProgressPage() {
                 progressPercentage = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
               }
               
+              // Calculate total time spent for this course
+              const totalTimeSpent = progressData.success && progressData.progress.length > 0
+                ? progressData.progress.reduce((sum: number, p: any) => sum + (p.timeSpent || 0), 0)
+                : 0;
+              
               return {
                 _id: course._id,
                 title: course.title,
@@ -334,6 +340,7 @@ export default function ProgressPage() {
                 completedModules,
                 totalModules,
                 lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+                timeSpent: totalTimeSpent,
               };
             } catch (error) {
               console.error('Error fetching progress for course:', course._id, error);
@@ -349,6 +356,7 @@ export default function ProgressPage() {
                 completedModules: 0,
                 totalModules: 0,
                 lastAccessed: new Date(course.createdAt).toISOString().split('T')[0],
+                timeSpent: 0,
               };
             }
           })
@@ -364,11 +372,22 @@ export default function ProgressPage() {
   };
 
   // Calculate overall stats
+  const totalTimeSpentMinutes = courses.reduce((sum, course) => {
+    return sum + (course.timeSpent || 0);
+  }, 0);
+  
+  const formatTimeSpent = (minutes: number): string => {
+    if (minutes === 0) return '0h 0m';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
+  
   const overallStats = {
     totalCourses: courses.length,
     completedCourses: courses.filter(c => c.progress === 100).length,
     inProgressCourses: courses.filter(c => c.progress > 0 && c.progress < 100).length,
-    totalTimeSpent: '0h 0m', // Would need timeSpent field in progress model
+    totalTimeSpent: formatTimeSpent(totalTimeSpentMinutes),
     averageProgress: courses.length > 0 
       ? Math.round(courses.reduce((sum, c) => sum + c.progress, 0) / courses.length) 
       : 0

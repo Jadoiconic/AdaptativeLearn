@@ -572,12 +572,33 @@ export default function CourseDetailPage() {
                 <p className="text-slate-600 mb-4">
                   Passing score: {currentAssessment.passingScore}%
                 </p>
-                <Button
-                  onClick={() => setShowAssessmentModal(false)}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  Close
-                </Button>
+                <div className="flex gap-3 justify-center">
+                  {(assessmentScore ?? 0) >= currentAssessment.passingScore && selectedModule && (
+                    <Button
+                      onClick={() => {
+                        // Find next module
+                        const currentModuleIndex = modules.findIndex(m => m._id === selectedModule._id);
+                        const nextModule = modules[currentModuleIndex + 1];
+                        if (nextModule) {
+                          setSelectedModule(nextModule);
+                          setShowAssessmentModal(false);
+                        } else {
+                          // No more modules, close modal
+                          setShowAssessmentModal(false);
+                        }
+                      }}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      Continue to Next Module
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => setShowAssessmentModal(false)}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
             ) : (
               <>
