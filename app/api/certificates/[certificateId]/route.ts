@@ -7,8 +7,9 @@ import { CertificateModel } from '@/database/models';
 // GET - Get specific certificate by ID
 export async function GET(
   request: NextRequest,
-  { params }: { params: { certificateId: string } }
+  { params }: { params: Promise<{ certificateId: string }> }
 ) {
+  const { certificateId } = await params;
   try {
     const session = await getServerSession(authOptions);
     
@@ -21,7 +22,7 @@ export async function GET(
 
     await connectDB();
     
-    const certificate = await CertificateModel.findById(params.certificateId)
+    const certificate = await CertificateModel.findById(certificateId)
       .populate('userId', 'name email')
       .populate('courseId', 'title description category difficulty');
     

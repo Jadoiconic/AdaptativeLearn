@@ -1,11 +1,11 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { MongoDBAdapter } from '@auth/mongodb-adapter';
+import { MongoDBAdapter } from '@next-auth/mongodb-adapter';
 import clientPromise from './mongodb';
 import UserModel from '../database/models/User';
 
 export const authOptions: NextAuthOptions = {
-  adapter: MongoDBAdapter(clientPromise),
+  adapter: MongoDBAdapter(clientPromise) as any,
   providers: [
     CredentialsProvider({
       name: 'credentials',
@@ -67,6 +67,6 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: '/auth/signin',
-    signUp: '/auth/signup',
+
   },
 };

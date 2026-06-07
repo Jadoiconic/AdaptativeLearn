@@ -3,7 +3,7 @@ import { getServerSession } from 'next-auth';
 
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
-import { CourseModel } from '@/database/models';
+import { CourseModel, ModuleModel } from '@/database/models';
 
 // ======================
 // GET COURSES
