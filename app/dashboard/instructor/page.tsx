@@ -162,9 +162,11 @@ export default function InstructorDashboard() {
               <button className="px-4 py-2 bg-white/20 backdrop-blur-sm hover:bg-white/30 text-white font-medium rounded-lg transition-all duration-200 border border-white/30">
                 Create New Course
               </button>
-              <button className="px-4 py-2 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white font-medium rounded-lg transition-all duration-200 border border-white/20">
-                View Analytics
-              </button>
+              <button className="px-4 py-2 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white font-medium rounded-lg transition-all duration-200 border border-white/20"
+                onClick={() => router.push('/dashboard/instructor/analytics')}
+                >
+                  View Analytics
+                </button>
             </div>
           </div>
         </div>
