@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     
     if (!session) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
+        { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
@@ -19,26 +19,131 @@ export async function GET(request: NextRequest) {
     
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId') || session.user.id;
+    const type = searchParams.get('type') || 'all'; // 'all', 'failed', 'ai'
     
     if (session.user.role !== 'admin' && userId !== session.user.id) {
       return NextResponse.json(
-        { error: 'Unauthorized to access other users recommendations' },
+        { success: false, error: 'Unauthorized to access other users recommendations' },
         { status: 403 }
       );
     }
     
-    const recommendations = await RecommendationModel.find({ 
-      userId,
-      expiresAt: { $gt: new Date() }
-    })
-      .populate('suggestedModules', 'title difficulty type courseId order')
-      .sort({ priority: -1, createdAt: -1 });
+    let recommendations: any[] = [];
     
-    return NextResponse.json({ recommendations });
+    if (type === 'all' || type === 'failed') {
+      // Get failed assessments (modules with score < 60)
+      const failedProgress = await ProgressModel.find({
+        userId,
+        score: { $lt: 60, $exists: true },
+        status: 'completed'
+      })
+        .populate('moduleId', 'title difficulty type courseId order')
+        .populate('courseId', 'title category');
+      
+      const failedRecommendations = failedProgress.map((p: any) => {
+        const score = p.score;
+        const module = p.moduleId;
+        const course = p.courseId;
+        
+        // AI-powered reasoning based on score and difficulty
+        let reasoning = '';
+        let learningStrategies: string[] = [];
+        
+        if (score < 40) {
+          reasoning = `You scored ${score}% on "${module.title}". This indicates significant gaps in understanding. Focus on mastering the fundamentals before progressing.`;
+          learningStrategies = [
+            'Review the module content from the beginning',
+            'Take detailed notes while studying',
+            'Practice with additional exercises',
+            'Consider seeking help from instructor or peers',
+            'Break down complex topics into smaller parts'
+          ];
+        } else if (score < 60) {
+          reasoning = `You scored ${score}% on "${module.title}". You have a basic understanding but need to deepen your knowledge to pass the assessment.`;
+          learningStrategies = [
+            'Focus on areas where you lost points',
+            'Review the module content again',
+            'Practice with similar problems',
+            'Test yourself with practice questions',
+            'Connect concepts to real-world examples'
+          ];
+        }
+        
+        // Add difficulty-specific strategies
+        if (module.difficulty === 'beginner') {
+          learningStrategies.push('Start with foundational concepts');
+          learningStrategies.push('Use visual aids and diagrams');
+        } else if (module.difficulty === 'intermediate') {
+          learningStrategies.push('Apply concepts to practical scenarios');
+          learningStrategies.push('Work on hands-on projects');
+        } else if (module.difficulty === 'advanced') {
+          learningStrategies.push('Engage in critical thinking exercises');
+          learningStrategies.push('Collaborate with peers for discussions');
+        }
+        
+        // Add type-specific strategies
+        if (module.type === 'video') {
+          learningStrategies.push('Watch videos at 0.75x speed for better comprehension');
+          learningStrategies.push('Pause and take notes frequently');
+        } else if (module.type === 'reading') {
+          learningStrategies.push('Read actively with questions in mind');
+          learningStrategies.push('Summarize each section in your own words');
+        } else if (module.type === 'interactive') {
+          learningStrategies.push('Complete all interactive exercises');
+          learningStrategies.push('Experiment with different approaches');
+        }
+        
+        return {
+          type: 'failed-assessment',
+          module: p.moduleId,
+          course: p.courseId,
+          score: p.score,
+          reasoning,
+          learningStrategies,
+          priority: 'high',
+          createdAt: p.completedAt,
+        };
+      });
+      
+      recommendations = [...recommendations, ...failedRecommendations];
+    }
+    
+    if (type === 'all' || type === 'ai') {
+      // Get AI recommendations from database
+      const aiRecommendations = await RecommendationModel.find({ 
+        userId,
+        expiresAt: { $gt: new Date() }
+      })
+        .populate('suggestedModules', 'title difficulty type courseId order')
+        .sort({ priority: -1, createdAt: -1 });
+      
+      const aiRecs = aiRecommendations.map((r: any) => ({
+        type: 'ai-recommendation',
+        modules: r.suggestedModules,
+        reasoning: r.reasoning,
+        priority: r.priority,
+        createdAt: r.createdAt,
+      }));
+      
+      recommendations = [...recommendations, ...aiRecs];
+    }
+    
+    // Sort by priority (high first) and date
+    const priorityOrder: Record<string, number> = { high: 3, medium: 2, low: 1 };
+    recommendations.sort((a: any, b: any) => {
+      const priorityDiff = priorityOrder[b.priority] - priorityOrder[a.priority];
+      if (priorityDiff !== 0) return priorityDiff;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    
+    return NextResponse.json({ 
+      success: true,
+      recommendations 
+    });
   } catch (error) {
     console.error('Get recommendations error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { success: false, error: 'Internal server error' },
       { status: 500 }
     );
   }

@@ -10,6 +10,7 @@ export interface IModule extends Document {
   type: 'lesson' | 'video' | 'quiz' | 'exercise';
   videoUrl?: string;
   fileUrl?: string;
+  assessmentId?: mongoose.Types.ObjectId;
   isPublished: boolean;
 }
 
@@ -55,6 +56,10 @@ const ModuleSchema = new Schema<IModule>({
   fileUrl: {
     type: String,
     default: '',
+  },
+  assessmentId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Assessment',
   },
   isPublished: {
     type: Boolean,

@@ -25,6 +25,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
 
   useEffect(() => {
     fetchProfile();
@@ -64,6 +70,47 @@ export default function ProfilePage() {
       setIsEditing(false);
     } catch (error) {
       console.error('Error saving profile:', error);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    if (!passwordData.currentPassword) {
+      alert('Current password is required');
+      return;
+    }
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
+    
+    if (passwordData.newPassword.length < 6) {
+      alert('Password must be at least 6 characters');
+      return;
+    }
+    
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: session?.user?.id,
+          currentPassword: passwordData.currentPassword,
+          password: passwordData.newPassword,
+        }),
+      });
+      
+      if (response.ok) {
+        setShowPasswordModal(false);
+        setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+        alert('Password reset successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to reset password');
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Failed to reset password');
     }
   };
 
@@ -129,7 +176,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.firstName}
                         onChange={(e) => setProfile({...profile, firstName: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.firstName}</p>
@@ -142,7 +189,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.lastName}
                         onChange={(e) => setProfile({...profile, lastName: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.lastName}</p>
@@ -162,7 +209,7 @@ export default function ProfilePage() {
                       value={profile.bio}
                       onChange={(e) => setProfile({...profile, bio: e.target.value})}
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <p className="text-gray-900">{profile.bio}</p>
@@ -177,7 +224,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.location}
                         onChange={(e) => setProfile({...profile, location: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.location}</p>
@@ -190,7 +237,7 @@ export default function ProfilePage() {
                         type="text"
                         value={profile.experience}
                         onChange={(e) => setProfile({...profile, experience: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     ) : (
                       <p className="text-gray-900">{profile.experience}</p>
@@ -205,7 +252,7 @@ export default function ProfilePage() {
                       type="text"
                       value={profile.education}
                       onChange={(e) => setProfile({...profile, education: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <p className="text-gray-900">{profile.education}</p>
@@ -304,7 +351,7 @@ export default function ProfilePage() {
                       type="url"
                       value={profile.website}
                       onChange={(e) => setProfile({...profile, website: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <a href={profile.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -319,7 +366,7 @@ export default function ProfilePage() {
                       type="url"
                       value={profile.linkedin}
                       onChange={(e) => setProfile({...profile, linkedin: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -334,7 +381,7 @@ export default function ProfilePage() {
                       type="url"
                       value={profile.github}
                       onChange={(e) => setProfile({...profile, github: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-slate-700 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   ) : (
                     <a href={profile.github} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
@@ -406,7 +453,11 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="pt-4 mt-4 border-t border-gray-200">
-                  <Button variant="outline" className="w-full mb-2">
+                  <Button 
+                    variant="outline" 
+                    className="w-full mb-2"
+                    onClick={() => setShowPasswordModal(true)}
+                  >
                     Change Password
                   </Button>
                   <Button variant="outline" className="w-full text-red-600 border-red-200 hover:bg-red-50">
@@ -418,6 +469,66 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
+
+      {/* Password Reset Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-transparent bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4 bg-white">
+            <CardHeader>
+              <CardTitle className="text-gray-900">Change Password</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={handlePasswordReset}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    Change Password
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowPasswordModal(false);
+                      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

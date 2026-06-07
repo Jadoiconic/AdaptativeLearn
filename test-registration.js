@@ -19,12 +19,12 @@ async function testRegistration() {
     console.log('Response data:', data);
     
     if (response.ok) {
-      console.log('✅ Registration successful!');
+      console.log('Registration successful!');
     } else {
-      console.log('❌ Registration failed:', data.error);
+      console.log('Registration failed:', data.error);
     }
   } catch (error) {
-    console.error('❌ Network error:', error.message);
+    console.error('Network error:', error.message);
   }
 }
 

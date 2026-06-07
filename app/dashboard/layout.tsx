@@ -50,7 +50,7 @@ export default function DashboardLayout({
       
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen shadow-sm">
+        <aside className="w-64 bg-white border-r border-gray-200 fixed top-0 left-0 h-screen overflow-y-auto z-40">
           <div className="p-6">
             <div className="mb-8">
               <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Navigation</h2>
@@ -88,21 +88,23 @@ export default function DashboardLayout({
                 <span className="font-medium">Courses</span>
               </Link>
               
-              <Link
-                href="/dashboard/progress"
-                className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
-                  isActiveRoute('/dashboard/progress')
-                    ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
-                }`}
-              >
-                <svg className={`w-5 h-5 transition-colors ${
-                  isActiveRoute('/dashboard/progress') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
-                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                <span className="font-medium">Progress</span>
-              </Link>
+              {session?.user?.role === 'student' && (
+                <Link
+                  href="/dashboard/progress"
+                  className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                    isActiveRoute('/dashboard/progress')
+                      ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 transition-colors ${
+                    isActiveRoute('/dashboard/progress') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  <span className="font-medium">Progress</span>
+                </Link>
+              )}
               
               <Link
                 href="/dashboard/profile"
@@ -160,28 +162,46 @@ export default function DashboardLayout({
               )}
               
               {session.user?.role === 'instructor' && (
-                <Link
-                  href="/dashboard/create-course"
-                  className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
-                    isActiveRoute('/dashboard/create-course')
-                      ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                <>
+                  <Link
+                    href="/dashboard/create-course"
+                    className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      isActiveRoute('/dashboard/create-course')
+                        ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                     }`}
-                >
-                  <svg className={`w-5 h-5 transition-colors ${
-                    isActiveRoute('/dashboard/create-course') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
-                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="font-medium">Create Course</span>
-                </Link>
+                  >
+                    <svg className={`w-5 h-5 transition-colors ${
+                      isActiveRoute('/dashboard/create-course') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="font-medium">Create Course</span>
+                  </Link>
+                  
+                  <Link
+                    href="/dashboard/modules"
+                    className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      isActiveRoute('/dashboard/modules')
+                        ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    <svg className={`w-5 h-5 transition-colors ${
+                      isActiveRoute('/dashboard/modules') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <span className="font-medium">Manage Modules</span>
+                  </Link>
+                </>
               )}
             </nav>
           </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 bg-gradient-to-br from-gray-50 via-white to-blue-50">
+        <main className="flex-1 bg-gradient-to-br from-gray-50 via-white to-blue-50 ml-64">
           <div className="p-8">
             {children}
           </div>
