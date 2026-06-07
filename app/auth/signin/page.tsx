@@ -1,11 +1,14 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { HumanButton } from '@/components/ui/human-button';
+
 import { HumanCard, HumanCardContent, HumanCardHeader, HumanCardTitle } from '@/components/ui/human-card';
+import { HumanButton } from '@/components/ui/human-button';
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -14,16 +17,17 @@ export default function SignIn() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    const message = searchParams.get('message');
-    if (message) {
-      setSuccessMessage(message);
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccessMessage(''), 5000);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const message = params.get('message');
+      if (message) {
+        setSuccessMessage(message);
+        setTimeout(() => setSuccessMessage(''), 5000);
+      }
     }
-  }, [searchParams]);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
