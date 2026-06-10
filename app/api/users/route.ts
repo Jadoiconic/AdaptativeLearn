@@ -134,7 +134,7 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
     
-    const { id, name, email, role, avatar, isActive, password, currentPassword } = body;
+    const { id, name, email, role, avatar, isActive, isApproved, password, currentPassword } = body;
     
     if (!id) {
       return NextResponse.json(
@@ -149,6 +149,7 @@ export async function PUT(request: NextRequest) {
     if (role && session.user.role === 'admin') updateData.role = role;
     if (avatar) updateData.avatar = avatar;
     if (typeof isActive === 'boolean' && session.user.role === 'admin') updateData.isActive = isActive;
+    if (typeof isApproved === 'boolean' && session.user.role === 'admin') updateData.isApproved = isApproved;
     
     // If user is changing their own password, verify current password first
     if (password && session.user.id === body.id) {

@@ -22,9 +22,14 @@ export default function SignIn() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const message = params.get('message');
+      const error = params.get('error');
       if (message) {
         setSuccessMessage(message);
-        setTimeout(() => setSuccessMessage(''), 5000);
+        setTimeout(() => setSuccessMessage(''), 8000);
+      }
+      if (error) {
+        setError(error);
+        setTimeout(() => setError(''), 8000);
       }
     }
   }, []);

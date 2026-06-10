@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
-import { ModuleModel, CourseModel } from '@/database/models';
+import { ModuleModel, CourseModel, UserModel } from '@/database/models';
 
 export async function GET(request: NextRequest) {
   try {
@@ -60,6 +60,21 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 }
       );
+    }
+
+    // Check if instructor is approved
+    if (session.user.role === 'instructor') {
+      await connectDB();
+      const instructor = await UserModel.findById(session.user.id);
+      if (!instructor || !instructor.isApproved) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Your instructor account is not approved yet. Please wait for admin approval.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     await connectDB();
@@ -168,6 +183,21 @@ export async function PUT(request: NextRequest) {
         },
         { status: 403 }
       );
+    }
+
+    // Check if instructor is approved
+    if (session.user.role === 'instructor') {
+      await connectDB();
+      const instructor = await UserModel.findById(session.user.id);
+      if (!instructor || !instructor.isApproved) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Your instructor account is not approved yet. Please wait for admin approval.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     await connectDB();
@@ -283,6 +313,21 @@ export async function DELETE(request: NextRequest) {
         },
         { status: 403 }
       );
+    }
+
+    // Check if instructor is approved
+    if (session.user.role === 'instructor') {
+      await connectDB();
+      const instructor = await UserModel.findById(session.user.id);
+      if (!instructor || !instructor.isApproved) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Your instructor account is not approved yet. Please wait for admin approval.',
+          },
+          { status: 403 }
+        );
+      }
     }
 
     await connectDB();

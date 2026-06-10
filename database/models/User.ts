@@ -8,6 +8,7 @@ export interface IUser extends Document {
   role: 'admin' | 'instructor' | 'student';
   avatar?: string;
   isActive: boolean;
+  isApproved?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -36,6 +37,7 @@ const UserSchema = new Schema<IUser, IUserModel>(
     role: { type: String, enum: ['admin', 'instructor', 'student'], default: 'student' },
     avatar: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
+    isApproved: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
