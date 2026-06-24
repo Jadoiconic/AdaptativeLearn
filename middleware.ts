@@ -18,7 +18,10 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => {
+      authorized: ({ req, token }) => {
+        const isAuthPage = req.nextUrl.pathname.startsWith('/auth/signin') || 
+                          req.nextUrl.pathname.startsWith('/auth/signup');
+        if (isAuthPage) return true;
         // Allow access if token exists (user is authenticated)
         return !!token;
       },
@@ -33,8 +36,8 @@ export const config = {
   matcher: [
     // Protect all dashboard routes including nested routes
     '/dashboard/:path*',
-    // Also protect auth pages to redirect authenticated users
-    '/auth/signin/:path*',
-    '/auth/signup/:path*',
+    // Match auth pages to handle redirects
+    '/auth/signin',
+    '/auth/signup',
   ],
 };

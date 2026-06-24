@@ -58,8 +58,12 @@ export default function SignUp() {
       if (!response.ok) {
         setError(data.error || 'Something went wrong. Please try again.');
       } else {
-        // Success - redirect to sign in with success message
-        router.push('/auth/signin?message=Account created successfully! You can now sign in.');
+        // Success - redirect based on role
+        if (role === 'student') {
+          router.push('/auth/signin?message=Account created successfully! Please sign in to complete your placement assessment.');
+        } else {
+          router.push('/auth/signin?message=Account created successfully! You can now sign in.');
+        }
       }
     } catch (error) {
       console.error('Registration error:', error);

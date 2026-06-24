@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { HumanNav } from '@/components/ui/human-nav';
+import { InstructorApprovalGate } from '@/components/instructor-approval-gate';
 
 export default function DashboardLayout({
   children,
@@ -37,6 +38,15 @@ export default function DashboardLayout({
 
     checkSession();
   }, [status, router]);
+
+  // Check if student needs to complete placement assessment
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'student') {
+      if (!session.user.placementAssessment?.completed && pathname !== '/placement-assessment') {
+        router.push('/placement-assessment');
+      }
+    }
+  }, [status, session, pathname, router]);
 
   // Prevent back button access after logout
   useEffect(() => {
@@ -255,7 +265,9 @@ export default function DashboardLayout({
         {/* Main Content */}
         <main className="flex-1 bg-gradient-to-br from-gray-50 via-white to-blue-50 ml-64">
           <div className="p-8">
-            {children}
+            <InstructorApprovalGate>
+              {children}
+            </InstructorApprovalGate>
           </div>
         </main>
       </div>

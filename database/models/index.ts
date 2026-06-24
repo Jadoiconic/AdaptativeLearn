@@ -6,6 +6,8 @@ import RecommendationModel from './Recommendation';
 import AssessmentModel from './Assessment';
 import ActivityModel from './Activity';
 import CertificateModel from './Certificate';
+import QuizModel from './Quiz';
+import QuizResultModel from './QuizResult';
 
 export {
   UserModel,
@@ -16,6 +18,8 @@ export {
   AssessmentModel,
   ActivityModel,
   CertificateModel,
+  QuizModel,
+  QuizResultModel,
 };
 
 export default {
@@ -27,4 +31,6 @@ export default {
   Assessment: AssessmentModel,
   Activity: ActivityModel,
   Certificate: CertificateModel,
+  Quiz: QuizModel,
+  QuizResult: QuizResultModel,
 };

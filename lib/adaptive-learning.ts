@@ -1,5 +1,5 @@
 import connectDB from '@/database/connection';
-import { ProgressModel, ModuleModel, CourseModel, RecommendationModel } from '@/database/models';
+import { ProgressModel, ModuleModel, CourseModel, RecommendationModel, UserModel } from '@/database/models';
 
 export interface LearningRecommendation {
   moduleId: string;
@@ -61,23 +61,24 @@ export class AdaptiveLearningEngine {
   
   static async generateRecommendations(userId: string): Promise<LearningRecommendation[]> {
     await connectDB();
-    
+
     const performance = await this.analyzeStudentPerformance(userId);
     const currentProgress = await ProgressModel.find({ userId });
     const completedModuleIds = currentProgress
       .filter(p => p.status === 'completed')
       .map(p => p.moduleId.toString());
-    
+    const profile = await UserModel.findById(userId).select('skills interests careerGoals');
+
     // Get available modules that the user hasn't completed
     const availableModules = await ModuleModel.find({
       _id: { $nin: completedModuleIds },
       isPublished: true,
     }).populate('courseId', 'title category');
-    
+
     const recommendations: LearningRecommendation[] = [];
-    
+
     for (const module of availableModules) {
-      const recommendation = await this.evaluateModule(module, performance, currentProgress);
+      const recommendation = await this.evaluateModule(module, performance, currentProgress, profile);
       if (recommendation.confidence > 0.3) {
         recommendations.push(recommendation);
       }
@@ -91,9 +92,10 @@ export class AdaptiveLearningEngine {
   }
   
   private static async evaluateModule(
-    module: any, 
-    performance: StudentPerformance, 
-    currentProgress: any[]
+    module: any,
+    performance: StudentPerformance,
+    currentProgress: any[],
+    profile?: { skills?: string[]; interests?: string[]; careerGoals?: string } | null
   ): Promise<LearningRecommendation> {
     let confidence = 0;
     let reasoning = '';
@@ -143,6 +145,21 @@ export class AdaptiveLearningEngine {
       reasoning += `Builds on your strengths in ${module.courseId.category}. `;
     }
     
+    // Boost confidence when the module aligns with the learner's stated career goals or interests
+    const category = (module.courseId.category || '').toLowerCase();
+    const title = (module.courseId.title || '').toLowerCase();
+    const careerGoals = (profile?.careerGoals || '').toLowerCase();
+    const interests = (profile?.interests || []).map(i => i.toLowerCase());
+
+    if (category && careerGoals && careerGoals.includes(category)) {
+      confidence += 0.15;
+      reasoning += `Directly supports your stated career goal. `;
+      priority = 'high';
+    } else if (interests.some(interest => category.includes(interest) || title.includes(interest))) {
+      confidence += 0.1;
+      reasoning += `Matches one of your listed interests. `;
+    }
+
     // Adjust confidence based on user's performance
     if (performance.averageScore > 80) {
       confidence += 0.1;

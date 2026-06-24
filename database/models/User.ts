@@ -1,14 +1,54 @@
 import mongoose, { Document, Schema, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export interface IEducationEntry {
+  institution: string;
+  degree?: string;
+  fieldOfStudy?: string;
+  startYear?: number;
+  endYear?: number;
+}
+
+export interface IPlacementQuizQuestion {
+  id: string;
+  type: 'multiple-choice' | 'true-false' | 'short-answer';
+  question: string;
+  options?: string[];
+  correctAnswer: string | string[];
+  explanation: string;
+  level: 'beginner' | 'intermediate' | 'advanced';
+  points: number;
+}
+
 export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
   role: 'admin' | 'instructor' | 'student';
   avatar?: string;
+  phone?: string;
+  bio?: string;
+  skills?: string[];
+  interests?: string[];
+  education?: IEducationEntry[];
+  careerGoals?: string;
   isActive: boolean;
   isApproved?: boolean;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  placementAssessment?: {
+    completed: boolean;
+    score?: number;
+    recommendedLevel?: 'beginner' | 'intermediate' | 'advanced';
+    completedAt?: Date;
+    strengths?: string[];
+    weaknesses?: string[];
+  };
+  // Transient answer key for the in-progress placement quiz, held server-side only
+  // so submission can be graded against it instead of trusting client-reported scores.
+  placementQuizDraft?: {
+    generatedAt: Date;
+    questions: IPlacementQuizQuestion[];
+  };
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -36,8 +76,50 @@ const UserSchema = new Schema<IUser, IUserModel>(
     },
     role: { type: String, enum: ['admin', 'instructor', 'student'], default: 'student' },
     avatar: { type: String, default: '' },
+    phone: { type: String, trim: true, default: '' },
+    bio: { type: String, trim: true, maxlength: 1000, default: '' },
+    skills: { type: [String], default: [] },
+    interests: { type: [String], default: [] },
+    education: [
+      {
+        institution: { type: String, trim: true, required: true },
+        degree: { type: String, trim: true },
+        fieldOfStudy: { type: String, trim: true },
+        startYear: { type: Number },
+        endYear: { type: Number },
+      },
+    ],
+    careerGoals: { type: String, trim: true, maxlength: 1000, default: '' },
     isActive: { type: Boolean, default: true },
     isApproved: { type: Boolean, default: false },
+    approvalStatus: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+    },
+    placementAssessment: {
+      completed: { type: Boolean, default: false },
+      score: { type: Number },
+      recommendedLevel: { type: String, enum: ['beginner', 'intermediate', 'advanced'] },
+      completedAt: { type: Date },
+      strengths: [String],
+      weaknesses: [String],
+    },
+    placementQuizDraft: {
+      generatedAt: { type: Date },
+      questions: [
+        {
+          id: { type: String, required: true },
+          type: { type: String, enum: ['multiple-choice', 'true-false', 'short-answer'], required: true },
+          question: { type: String, required: true },
+          options: [String],
+          correctAnswer: { type: Schema.Types.Mixed, required: true },
+          explanation: { type: String, required: true },
+          level: { type: String, enum: ['beginner', 'intermediate', 'advanced'], required: true },
+          points: { type: Number, default: 10 },
+        },
+      ],
+    },
   },
   { timestamps: true }
 );

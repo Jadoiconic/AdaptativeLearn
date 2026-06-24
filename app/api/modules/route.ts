@@ -2,7 +2,79 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
-import { ModuleModel, CourseModel, UserModel } from '@/database/models';
+import { ModuleModel, CourseModel, UserModel, QuizModel } from '@/database/models';
+import { aiService } from '@/lib/ai-service';
+
+// Background function to trigger quiz generation
+async function triggerQuizGeneration(moduleId: string, module: any, userId: string) {
+  try {
+    // Check if quiz already exists
+    await connectDB();
+    const existingQuiz = await QuizModel.findOne({ moduleId });
+    
+    if (existingQuiz) {
+      console.log(`Quiz already exists for module ${moduleId}, skipping generation`);
+      return;
+    }
+
+    // Create quiz with generating status
+    const newQuiz = new QuizModel({
+      moduleId,
+      courseId: module.courseId,
+      title: `Assessment for ${module.title}`,
+      description: 'Evaluate your knowledge of this module',
+      status: 'generating',
+      generatedBy: 'ai',
+      metadata: {
+        moduleTitle: module.title,
+        generatedAt: new Date(),
+      },
+    });
+    await newQuiz.save();
+
+    // Prepare module content for AI
+    const moduleContent = {
+      title: module.title,
+      description: module.description || '',
+      lessons: module.lessons || [],
+      category: module.category || '',
+      materials: module.materials || [],
+    };
+
+    // Generate quiz using AI service
+    const generatedQuiz = await aiService.generateQuiz(moduleContent);
+
+    // Update quiz with generated content
+    const quiz = await QuizModel.findOne({ moduleId });
+    if (quiz) {
+      quiz.title = generatedQuiz.title;
+      quiz.description = generatedQuiz.description;
+      quiz.questions = generatedQuiz.questions;
+      quiz.passingScore = generatedQuiz.passingScore;
+      quiz.timeLimit = generatedQuiz.timeLimit;
+      quiz.status = 'draft';
+      quiz.metadata.provider = generatedQuiz.metadata.provider;
+      quiz.metadata.model = generatedQuiz.metadata.model;
+      quiz.metadata.generatedAt = new Date(generatedQuiz.metadata.generatedAt);
+      
+      await quiz.save();
+      console.log(`Quiz generated successfully for module ${moduleId}`);
+    }
+  } catch (error) {
+    console.error('Error generating quiz in background:', error);
+    
+    // Update quiz status to indicate failure
+    try {
+      const quiz = await QuizModel.findOne({ moduleId });
+      if (quiz) {
+        quiz.status = 'draft';
+        await quiz.save();
+      }
+    } catch (updateError) {
+      console.error('Error updating quiz status after failure:', updateError);
+    }
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -137,6 +209,11 @@ export async function POST(request: NextRequest) {
     });
     
     await module.save();
+    
+    // Trigger automatic quiz generation in background (fire and forget)
+    triggerQuizGeneration(module._id.toString(), module, session.user.id).catch(err => {
+      console.error('Background quiz generation failed:', err);
+    });
     
     // Increment course module count
     await CourseModel.findByIdAndUpdate(courseId, {

@@ -149,7 +149,10 @@ export async function PUT(request: NextRequest) {
     if (role && session.user.role === 'admin') updateData.role = role;
     if (avatar) updateData.avatar = avatar;
     if (typeof isActive === 'boolean' && session.user.role === 'admin') updateData.isActive = isActive;
-    if (typeof isApproved === 'boolean' && session.user.role === 'admin') updateData.isApproved = isApproved;
+    if (typeof isApproved === 'boolean' && session.user.role === 'admin') {
+      updateData.isApproved = isApproved;
+      updateData.approvalStatus = isApproved ? 'approved' : 'rejected';
+    }
     
     // If user is changing their own password, verify current password first
     if (password && session.user.id === body.id) {

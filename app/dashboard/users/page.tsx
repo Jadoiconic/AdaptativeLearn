@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface User {
+  approvalStatus: string;
   _id: string;
   name: string;
   email: string;
@@ -174,6 +176,57 @@ export default function UsersPage() {
     } catch (error) {
       console.error('Error updating user status:', error);
       alert('Failed to update user status');
+    }
+  };
+
+
+  const handleApproveUser = async (user: User) => {
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user._id,
+          approvalStatus: 'approved',
+          isApproved: true,
+        }),
+      });
+      
+      if (response.ok) {
+        fetchUsers();
+        alert('User approved successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to approve user');
+      }
+    } catch (error) {
+      console.error('Error approving user:', error);
+      alert('Failed to approve user');
+    }
+  };
+
+  const handleRejectUser = async (user: User) => {
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: user._id,
+          approvalStatus: 'rejected',
+          isApproved: false,
+        }),
+      });
+      
+      if (response.ok) {
+        fetchUsers();
+        alert('User rejected successfully');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to reject user');
+      }
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      alert('Failed to reject user');
     }
   };
 
@@ -482,7 +535,13 @@ export default function UsersPage() {
                     <td className="py-4 px-4 text-slate-600">Recently</td>
                     <td className="py-4 px-4">
                       <div className="flex space-x-2">
-                        <button 
+                        <Link
+                          href={`/dashboard/users/${user._id}`}
+                          className="text-slate-700 hover:text-slate-900 text-sm font-medium"
+                        >
+                          View Profile
+                        </Link>
+                        <button
                           onClick={() => openEditModal(user)}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                         >
@@ -516,6 +575,24 @@ export default function UsersPage() {
                           >
                             Activate
                           </button>
+                        )}
+
+                        {user.approvalStatus === 'pending' && user.role === 'instructor' && (
+                          <>
+                          <button 
+                            onClick={() => handleApproveUser(user)}
+                            className="text-green-600 hover:text-green-800 text-sm font-medium"
+                          >
+                            Approve
+                          </button>
+
+                          <button 
+                            onClick={() => handleRejectUser(user)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          >
+                            Reject
+                          </button>
+                          </>
                         )}
                       </div>
                     </td>
