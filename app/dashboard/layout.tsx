@@ -16,6 +16,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const pathname = usePathname();
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [placementCompleted, setPlacementCompleted] = useState<boolean | null>(null);
 
   const isActiveRoute = (route: string) => {
     if (route === '/dashboard') {
@@ -39,14 +40,39 @@ export default function DashboardLayout({
     checkSession();
   }, [status, router]);
 
-  // Check if student needs to complete placement assessment
+  // Check the database directly for onboarding state — the JWT session only reflects
+  // the state at last login and can be stale.
   useEffect(() => {
     if (status === 'authenticated' && session?.user?.role === 'student') {
-      if (!session.user.placementAssessment?.completed && pathname !== '/placement-assessment') {
-        router.push('/placement-assessment');
-      }
+      fetch('/api/users/me')
+        .then((res) => res.json())
+        .then((data) => {
+          const placementDone = !!data.user?.placementAssessment?.completed;
+          const courseSelectionDone = !!data.user?.courseSelectionCompleted;
+          setPlacementCompleted(placementDone);
+
+          // Gate: for new accounts that haven't picked a course yet, go to course selection.
+          // Skip this gate for existing accounts that already completed placement (they
+          // went through the old flow without course selection).
+          if (!placementDone && !courseSelectionDone) {
+            router.push('/course-selection');
+          }
+        })
+        .catch(() => setPlacementCompleted(!!session.user.placementAssessment?.completed));
     }
-  }, [status, session, pathname, router]);
+  }, [status, session?.user?.id, session?.user?.role]);
+
+  // If course selection is done but placement assessment isn't, redirect there.
+  useEffect(() => {
+    if (
+      status === 'authenticated' &&
+      session?.user?.role === 'student' &&
+      placementCompleted === false &&
+      pathname !== '/placement-assessment'
+    ) {
+      router.push('/placement-assessment');
+    }
+  }, [status, session, placementCompleted, pathname, router]);
 
   // Prevent back button access after logout
   useEffect(() => {

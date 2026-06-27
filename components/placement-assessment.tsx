@@ -12,7 +12,7 @@ interface QuizQuestion {
   type: 'multiple-choice' | 'true-false' | 'short-answer';
   question: string;
   options?: string[];
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: 'beginner' | 'intermediate' | 'advanced' | 'interest';
   points: number;
 }
 
@@ -39,7 +39,7 @@ interface PlacementResult {
 }
 
 export function PlacementAssessment() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update: updateSession } = useSession();
   const router = useRouter();
   const [quiz, setQuiz] = useState<GeneratedQuiz | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,16 +77,17 @@ export function PlacementAssessment() {
   const checkPlacementStatus = async () => {
     try {
       setLoading(true);
-      // Check if user already completed placement assessment
-      const response = await fetch('/api/auth/session');
+      // Check completion against the database, not the session: the JWT session
+      // only reflects placementAssessment as of last login, so it can be stale
+      // for the rest of the session after a student submits the assessment.
+      const response = await fetch('/api/users/me');
       const data = await response.json();
-      
+
       if (data.user?.placementAssessment?.completed) {
-        // Redirect to dashboard if already completed
         router.push('/dashboard');
         return;
       }
-      
+
       // Generate placement assessment
       await generateQuiz();
     } catch (error) {
@@ -106,6 +107,9 @@ export function PlacementAssessment() {
       if (data.success) {
         setQuiz(data.quiz);
         setTimeRemaining(data.quiz.timeLimit ? data.quiz.timeLimit * 60 : 1800); // Default 30 minutes
+      } else if (data.result?.completed) {
+        // Already completed (e.g. a stale tab) — just move on, no error needed.
+        router.push('/dashboard');
       } else {
         setError(data.error || 'Failed to generate placement assessment');
       }
@@ -157,6 +161,12 @@ export function PlacementAssessment() {
       if (data.success) {
         setResult(data.result);
         setShowResult(true);
+        // Refresh the JWT session immediately so it doesn't keep reporting
+        // "not completed" for the rest of this session (see dashboard layout's gate).
+        await updateSession({ placementAssessment: data.result });
+      } else if (response.status === 409) {
+        // Already submitted (e.g. double-fired by the auto-submit timer) — no error needed.
+        router.push('/dashboard');
       } else {
         setError(data.error || 'Failed to submit assessment');
       }
@@ -297,23 +307,34 @@ export function PlacementAssessment() {
                 <div className="text-sm text-gray-600">Questions</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">3</div>
-                <div className="text-sm text-gray-600">Skill Tiers Tested</div>
+                <div className="text-2xl font-bold text-green-600">4</div>
+                <div className="text-sm text-gray-600">Career Tracks</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
                 <div className="text-2xl font-bold text-purple-600">{quiz.timeLimit || 30}</div>
                 <div className="text-sm text-gray-600">Minutes</div>
               </div>
             </div>
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-              <p className="text-sm text-yellow-700">
-                <strong>Important:</strong> This placement assessment will evaluate your overall knowledge level. 
-                The results will help recommend the appropriate learning path for you.
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+              <p className="text-sm text-blue-700">
+                <strong>How it works:</strong> The first 4 questions identify your preferred career track
+                (Networking, Embedded Systems, CCTV, or Software Development). The remaining questions
+                assess your technical skill level (Beginner, Intermediate, or Advanced). Together they
+                generate a personalized learning roadmap.
               </p>
             </div>
             <Button onClick={handleStart} className="w-full bg-blue-600 hover:bg-blue-700">
               Start Placement Assessment
             </Button>
+            <p className="text-center text-sm text-gray-500 mt-3">
+              Want to choose a different track?{' '}
+              <button
+                onClick={() => router.push('/course-selection')}
+                className="text-blue-600 hover:underline font-medium"
+              >
+                Change course
+              </button>
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -406,21 +427,36 @@ function QuestionView({
         return 'bg-yellow-100 text-yellow-700';
       case 'advanced':
         return 'bg-red-100 text-red-700';
+      case 'interest':
+        return 'bg-blue-100 text-blue-700';
       default:
         return 'bg-gray-100 text-gray-700';
     }
   };
 
+  const isInterest = question.level === 'interest';
+
   return (
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <span className={`px-2 py-1 text-xs font-medium rounded ${getLevelColor(question.level)}`}>
-            {question.level}
-          </span>
-          <span className="text-sm text-gray-500">{question.points} points</span>
+          {isInterest ? (
+            <span className="px-2 py-1 text-xs font-medium rounded bg-blue-100 text-blue-700">
+              Track Selection
+            </span>
+          ) : (
+            <>
+              <span className={`px-2 py-1 text-xs font-medium rounded ${getLevelColor(question.level)}`}>
+                {question.level}
+              </span>
+              <span className="text-sm text-gray-500">{question.points} points</span>
+            </>
+          )}
         </div>
         <h3 className="text-lg font-medium text-gray-900">{question.question}</h3>
+        {isInterest && (
+          <p className="text-sm text-gray-500 mt-1">Help us understand your interests — there are no right or wrong answers.</p>
+        )}
       </div>
 
       {question.type === 'multiple-choice' && question.options && (

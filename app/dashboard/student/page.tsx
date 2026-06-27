@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TRACK_LABELS, RecommendedTrack } from '@/lib/placement-tracks';
 
 interface EnrolledCourse {
   _id: string;
@@ -43,6 +44,36 @@ interface Recommendation {
   }>;
 }
 
+interface RecommendedCourse {
+  _id: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+  thumbnail?: string;
+  duration?: string;
+}
+
+interface RoadmapStep {
+  order: number;
+  status: 'available' | 'in_progress' | 'completed';
+  courseId: RecommendedCourse;
+}
+
+interface Roadmap {
+  targetLevel: 'beginner' | 'intermediate' | 'advanced';
+  steps: RoadmapStep[];
+}
+
+interface PlacementAssessment {
+  completed: boolean;
+  score?: number;
+  recommendedLevel?: 'beginner' | 'intermediate' | 'advanced';
+  recommendedTrack?: RecommendedTrack;
+  strengths?: string[];
+  weaknesses?: string[];
+}
+
 export default function StudentDashboard() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -51,10 +82,35 @@ export default function StudentDashboard() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'courses' | 'recommendations'>('courses');
   const [loading, setLoading] = useState(true);
+  const [placementAssessment, setPlacementAssessment] = useState<PlacementAssessment | null>(null);
+  const [readinessScore, setReadinessScore] = useState<number | null>(null);
+  const [recommendedCourses, setRecommendedCourses] = useState<RecommendedCourse[]>([]);
+  const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
 
   useEffect(() => {
     fetchStudentData();
+    fetchPlacementAndRoadmap();
   }, []);
+
+  const fetchPlacementAndRoadmap = async () => {
+    try {
+      const profileResponse = await fetch('/api/users/me');
+      if (profileResponse.ok) {
+        const profileData = await profileResponse.json();
+        setPlacementAssessment(profileData.user.placementAssessment || null);
+        setReadinessScore(profileData.user.readinessScore ?? null);
+        setRecommendedCourses(profileData.user.recommendedCourses || []);
+      }
+
+      const roadmapResponse = await fetch('/api/roadmap');
+      if (roadmapResponse.ok) {
+        const roadmapData = await roadmapResponse.json();
+        setRoadmap(roadmapData.roadmap || null);
+      }
+    } catch (error) {
+      console.error('Error fetching placement/roadmap data:', error);
+    }
+  };
 
   const fetchStudentData = async () => {
     try {
@@ -268,6 +324,159 @@ export default function StudentDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Personalized Path (shown once the placement assessment is completed) */}
+      {placementAssessment?.completed && (
+        <div className="mb-8 space-y-6">
+          <Card className="border-gray-200">
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Your Internship Readiness</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Based on your placement assessment, you're starting at the{' '}
+                    <span className="font-semibold capitalize">{placementAssessment.recommendedLevel}</span> level.
+                  </p>
+                  {placementAssessment.recommendedTrack && (
+                    <p className="text-sm text-blue-700 mt-1 font-medium">
+                      Recommended track: {TRACK_LABELS[placementAssessment.recommendedTrack] ?? placementAssessment.recommendedTrack}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-6">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600">{readinessScore ?? '--'}</div>
+                    <div className="text-xs text-gray-500">Readiness Score</div>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <span
+                      className={`px-4 py-2 rounded-full text-sm font-medium border capitalize ${
+                        placementAssessment.recommendedLevel === 'beginner'
+                          ? 'bg-green-100 text-green-700 border-green-200'
+                          : placementAssessment.recommendedLevel === 'intermediate'
+                          ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                          : 'bg-purple-100 text-purple-700 border-purple-200'
+                      }`}
+                    >
+                      {placementAssessment.recommendedLevel}
+                    </span>
+                    {placementAssessment.recommendedTrack && (
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200 text-center">
+                        {placementAssessment.recommendedTrack.replace('-', ' ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {(placementAssessment.strengths?.length || placementAssessment.weaknesses?.length) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+                  {placementAssessment.strengths && placementAssessment.strengths.length > 0 && (
+                    <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded">
+                      <h4 className="font-medium text-green-800 mb-2 text-sm">Strengths</h4>
+                      <ul className="text-sm text-green-700 space-y-1">
+                        {placementAssessment.strengths.map((s, i) => (
+                          <li key={i}>• {s}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {placementAssessment.weaknesses && placementAssessment.weaknesses.length > 0 && (
+                    <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded">
+                      <h4 className="font-medium text-amber-800 mb-2 text-sm">Growth Areas</h4>
+                      <ul className="text-sm text-amber-700 space-y-1">
+                        {placementAssessment.weaknesses.map((w, i) => (
+                          <li key={i}>• {w}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Recommended Courses */}
+            <Card className="border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-gray-900">Recommended For You</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {recommendedCourses.length === 0 ? (
+                  <p className="text-sm text-gray-600">
+                    No matching courses are published yet for your level. Check back soon.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {recommendedCourses.map((course) => (
+                      <div
+                        key={course._id}
+                        onClick={() => router.push(`/dashboard/courses/${course._id}`)}
+                        className="flex items-center justify-between p-3 border border-gray-200 rounded-lg cursor-pointer hover:shadow-md transition-all duration-200"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">{course.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs">{course.category}</span>
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs capitalize">
+                              {course.difficulty}
+                            </span>
+                          </div>
+                        </div>
+                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                          Start
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Personalized Roadmap */}
+            <Card className="border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-gray-900">Internship Readiness Roadmap</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {!roadmap || roadmap.steps.length === 0 ? (
+                  <p className="text-sm text-gray-600">Your roadmap will appear here once courses are available.</p>
+                ) : (
+                  <ol className="space-y-3">
+                    {roadmap.steps.map((step) => (
+                      <li
+                        key={step.courseId._id}
+                        onClick={() => router.push(`/dashboard/courses/${step.courseId._id}`)}
+                        className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:shadow-md transition-all duration-200"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-sm font-semibold flex items-center justify-center flex-shrink-0">
+                          {step.order}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900 text-sm">{step.courseId.title}</p>
+                          <p className="text-xs text-gray-500">{step.courseId.category}</p>
+                        </div>
+                        <span
+                          className={`px-2 py-1 text-xs font-medium rounded-full ${
+                            step.status === 'completed'
+                              ? 'bg-green-100 text-green-700'
+                              : step.status === 'in_progress'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {step.status.replace('_', ' ')}
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="mb-6">

@@ -4,6 +4,8 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
 import { UserModel } from '@/database/models';
 import { IPlacementQuizQuestion } from '@/database/models/User';
+import { generateRoadmapForUser } from '@/lib/roadmap';
+import { RecommendedTrack } from '@/lib/placement-tracks';
 
 // A tier counts as "passed" once the learner gets at least half of its questions right.
 const MASTERY_THRESHOLD = 0.5;
@@ -75,12 +77,12 @@ export async function POST(request: NextRequest) {
     // client-reported correctness, since the client only has the question text.
     const answerByQuestionId = new Map(answers.map((a) => [a.questionId, a.selectedAnswer]));
 
-    const tierTotals: Record<IPlacementQuizQuestion['level'], number> = {
+    const tierTotals: Record<'beginner' | 'intermediate' | 'advanced', number> = {
       beginner: 0,
       intermediate: 0,
       advanced: 0,
     };
-    const tierCorrect: Record<IPlacementQuizQuestion['level'], number> = {
+    const tierCorrect: Record<'beginner' | 'intermediate' | 'advanced', number> = {
       beginner: 0,
       intermediate: 0,
       advanced: 0,
@@ -91,22 +93,27 @@ export async function POST(request: NextRequest) {
     let correctCount = 0;
 
     for (const question of draftQuestions) {
+      if (question.level === 'interest') continue; // legacy — skip if present
+
       const selected = answerByQuestionId.get(question.id);
       const correct = isAnswerCorrect(selected, question.correctAnswer);
 
       totalPoints += question.points;
-      tierTotals[question.level] += 1;
+      tierTotals[question.level as 'beginner' | 'intermediate' | 'advanced'] += 1;
 
       if (correct) {
         earnedPoints += question.points;
-        tierCorrect[question.level] += 1;
+        tierCorrect[question.level as 'beginner' | 'intermediate' | 'advanced'] += 1;
         correctCount += 1;
       }
     }
 
+    // Track comes from the explicit course selection step, not assessment answers.
+    const recommendedTrack = (user.selectedTrack ?? 'software-development') as RecommendedTrack;
+
     const percentage = totalPoints > 0 ? (earnedPoints / totalPoints) * 100 : 0;
 
-    const tierAccuracy = (level: IPlacementQuizQuestion['level']) =>
+    const tierAccuracy = (level: 'beginner' | 'intermediate' | 'advanced') =>
       tierTotals[level] > 0 ? tierCorrect[level] / tierTotals[level] : 0;
 
     const beginnerAccuracy = tierAccuracy('beginner');
@@ -124,23 +131,30 @@ export async function POST(request: NextRequest) {
       recommendedLevel = 'advanced';
     }
 
+    const technicalQuestionCount = draftQuestions.filter((q) => q.level !== ('interest' as any)).length;
     const feedback = generatePlacementFeedback({
       beginnerAccuracy,
       intermediateAccuracy,
       advancedAccuracy,
       correctCount,
-      totalCount: draftQuestions.length,
+      totalCount: technicalQuestionCount,
     });
+
+    const { courseIds, roadmapId } = await generateRoadmapForUser(session.user.id, recommendedLevel, recommendedTrack);
 
     user.placementAssessment = {
       completed: true,
       score: Math.round(percentage * 10) / 10,
       recommendedLevel,
+      recommendedTrack,
       completedAt: new Date(),
       strengths: feedback.strengths,
       weaknesses: feedback.weaknesses,
     };
     user.placementQuizDraft = undefined;
+    user.readinessScore = Math.round(percentage);
+    user.recommendedCourses = courseIds;
+    user.generatedRoadmapId = roadmapId;
 
     await user.save();
 

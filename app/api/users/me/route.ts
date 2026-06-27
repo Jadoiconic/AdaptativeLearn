@@ -6,7 +6,7 @@ import { UserModel } from '@/database/models';
 import { computeProfileCompletion } from '@/lib/profile-completion';
 
 const PROFILE_FIELDS =
-  'name email role approvalStatus isActive avatar phone bio skills interests education careerGoals placementAssessment createdAt';
+  'name email role approvalStatus isActive avatar phone bio skills interests education careerGoals placementAssessment readinessScore recommendedCourses selectedCourse selectedTrack courseSelectionCompleted createdAt';
 
 const MAX_LIST_ITEMS = 30;
 const MAX_LIST_ITEM_LENGTH = 60;
@@ -68,7 +68,9 @@ export async function GET() {
     }
 
     await connectDB();
-    const user = await UserModel.findById(session.user.id).select(PROFILE_FIELDS);
+    const user = await UserModel.findById(session.user.id)
+      .select(PROFILE_FIELDS)
+      .populate('recommendedCourses', 'title description category difficulty thumbnail duration');
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -90,6 +92,11 @@ export async function GET() {
         education: user.education,
         careerGoals: user.careerGoals,
         placementAssessment: user.placementAssessment,
+        readinessScore: user.readinessScore,
+        recommendedCourses: user.recommendedCourses,
+        selectedCourse: user.selectedCourse,
+        selectedTrack: user.selectedTrack,
+        courseSelectionCompleted: user.courseSelectionCompleted,
         createdAt: user.createdAt,
       },
       profileCompletion: computeProfileCompletion(user),

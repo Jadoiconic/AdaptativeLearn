@@ -8,6 +8,7 @@ import ActivityModel from './Activity';
 import CertificateModel from './Certificate';
 import QuizModel from './Quiz';
 import QuizResultModel from './QuizResult';
+import RoadmapModel from './Roadmap';
 
 export {
   UserModel,
@@ -20,6 +21,7 @@ export {
   CertificateModel,
   QuizModel,
   QuizResultModel,
+  RoadmapModel,
 };
 
 export default {
@@ -33,4 +35,5 @@ export default {
   Certificate: CertificateModel,
   Quiz: QuizModel,
   QuizResult: QuizResultModel,
+  Roadmap: RoadmapModel,
 };

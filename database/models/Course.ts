@@ -1,16 +1,27 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
+export const COURSE_CATEGORIES = [
+  'Networking',
+  'CCTV Camera Systems',
+  'Embedded Systems',
+  'Software Development',
+] as const;
+
+export type CourseCategory = typeof COURSE_CATEGORIES[number];
+
 export interface ICourse extends Document {
   title: string;
   description: string;
-  category: string;
+  category: CourseCategory;
   instructorId: mongoose.Types.ObjectId;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
   duration: string;
-  price?: number;
   thumbnail?: string;
-  objectives?: string[];
-  requirements?: string[];
+  skillsCovered: string[];
+  learningObjectives: string[];
+  internshipReadinessOutcomes: string[];
+  modules: string[];
+  aiQuizEnabled: boolean;
   moduleCount?: number;
   isPublished: boolean;
 }
@@ -29,6 +40,10 @@ const CourseSchema = new Schema<ICourse>({
   category: {
     type: String,
     required: [true, 'Course category is required'],
+    enum: {
+      values: COURSE_CATEGORIES,
+      message: `Category must be one of: ${COURSE_CATEGORIES.join(', ')}`,
+    },
     trim: true,
   },
   instructorId: {
@@ -46,22 +61,29 @@ const CourseSchema = new Schema<ICourse>({
     required: [true, 'Course duration is required'],
     trim: true,
   },
-  price: {
-    type: Number,
-    default: 0,
-    min: [0, 'Price must be at least 0'],
-  },
   thumbnail: {
     type: String,
     default: '',
   },
-  objectives: {
+  skillsCovered: {
     type: [String],
     default: [],
   },
-  requirements: {
+  learningObjectives: {
     type: [String],
     default: [],
+  },
+  internshipReadinessOutcomes: {
+    type: [String],
+    default: [],
+  },
+  modules: {
+    type: [String],
+    default: [],
+  },
+  aiQuizEnabled: {
+    type: Boolean,
+    default: false,
   },
   moduleCount: {
     type: Number,

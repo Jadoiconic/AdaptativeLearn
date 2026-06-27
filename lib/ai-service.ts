@@ -30,7 +30,7 @@ export interface LevelAssessmentQuestion {
   options?: string[];
   correctAnswer: string | string[];
   explanation: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: 'beginner' | 'intermediate' | 'advanced' | 'interest';
   points: number;
 }
 
@@ -47,10 +47,68 @@ export interface GeneratedLevelAssessment {
   };
 }
 
+export interface GeneratedCourseMetadata {
+  skillTags: string[];
+  internshipReadinessOutcomes: string[];
+  roadmapSuggestions: string[];
+}
+
+export interface CourseMetadataInput {
+  title: string;
+  description: string;
+  category: string;
+  difficulty: string;
+}
+
 export interface AIProvider {
   name: string;
   generateQuiz(moduleContent: ModuleContent): Promise<GeneratedQuiz>;
   generateLevelAssessment(domain: string): Promise<GeneratedLevelAssessment>;
+  generateCourseMetadata(course: CourseMetadataInput): Promise<GeneratedCourseMetadata>;
+}
+
+function buildCourseMetadataPrompt(course: CourseMetadataInput): string {
+  return `You are an expert curriculum designer for an AI-powered internship training platform.
+
+Generate structured metadata for this course:
+Title: ${course.title}
+Description: ${course.description}
+Category: ${course.category}
+Difficulty: ${course.difficulty}
+
+Return ONLY valid JSON with this exact structure:
+{
+  "skillTags": ["skill1", "skill2", "skill3", "skill4", "skill5"],
+  "internshipReadinessOutcomes": [
+    "Outcome 1 describing what interns will be capable of",
+    "Outcome 2",
+    "Outcome 3",
+    "Outcome 4"
+  ],
+  "roadmapSuggestions": [
+    "Step 1 in the learning progression",
+    "Step 2",
+    "Step 3"
+  ]
+}
+
+Requirements:
+- skillTags: 5-8 specific, industry-relevant skills from this course
+- internshipReadinessOutcomes: 4-6 concrete outcomes demonstrating internship readiness
+- roadmapSuggestions: 3-5 next steps or related courses for continued growth
+- All content must relate to internship and employment readiness
+- Return ONLY valid JSON, no additional text`;
+}
+
+function parseCourseMetadataResponse(content: string): GeneratedCourseMetadata {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON found in response');
+  const data = JSON.parse(jsonMatch[0]);
+  return {
+    skillTags: Array.isArray(data.skillTags) ? data.skillTags : [],
+    internshipReadinessOutcomes: Array.isArray(data.internshipReadinessOutcomes) ? data.internshipReadinessOutcomes : [],
+    roadmapSuggestions: Array.isArray(data.roadmapSuggestions) ? data.roadmapSuggestions : [],
+  };
 }
 
 function buildLevelAssessmentPrompt(domain: string): string {
@@ -233,6 +291,40 @@ class OpenAIProvider implements AIProvider {
     }
   }
 
+  async generateCourseMetadata(course: CourseMetadataInput): Promise<GeneratedCourseMetadata> {
+    const prompt = buildCourseMetadataPrompt(course);
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert curriculum designer for internship training programs.',
+            },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`OpenAI API error: ${response.statusText}`);
+
+      const data = await response.json();
+      return parseCourseMetadataResponse(data.choices[0].message.content);
+    } catch (error) {
+      console.error('OpenAI course metadata generation error:', error);
+      throw new Error('Failed to generate course metadata with OpenAI');
+    }
+  }
+
   private buildPrompt(content: ModuleContent): string {
     return `Based on this module content, automatically generate a professional pre-course assessment quiz to evaluate a new student's current knowledge level.
 
@@ -353,6 +445,32 @@ class GeminiProvider implements AIProvider {
     } catch (error) {
       console.error('Gemini generation error:', error);
       throw new Error('Failed to generate quiz with Gemini');
+    }
+  }
+
+  async generateCourseMetadata(course: CourseMetadataInput): Promise<GeneratedCourseMetadata> {
+    const prompt = buildCourseMetadataPrompt(course);
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 1000 },
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error(`Gemini API error: ${response.statusText}`);
+
+      const data = await response.json();
+      return parseCourseMetadataResponse(data.candidates[0].content.parts[0].text);
+    } catch (error) {
+      console.error('Gemini course metadata generation error:', error);
+      throw new Error('Failed to generate course metadata with Gemini');
     }
   }
 
@@ -526,6 +644,24 @@ export class AIService {
         lastError = error as Error;
         console.error(`Level assessment generation attempt ${i + 1} failed:`, error);
 
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  async generateCourseMetadata(course: CourseMetadataInput): Promise<GeneratedCourseMetadata> {
+    const maxRetries = 3;
+    let lastError: Error = new Error('Failed to generate course metadata after retries');
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await this.provider.generateCourseMetadata(course);
+      } catch (error) {
+        lastError = error as Error;
         if (i < maxRetries - 1) {
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
         }

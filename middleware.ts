@@ -36,6 +36,9 @@ export const config = {
   matcher: [
     // Protect all dashboard routes including nested routes
     '/dashboard/:path*',
+    // Protect onboarding routes
+    '/course-selection',
+    '/placement-assessment',
     // Match auth pages to handle redirects
     '/auth/signin',
     '/auth/signup',

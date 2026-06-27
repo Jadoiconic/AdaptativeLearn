@@ -16,7 +16,7 @@ export interface IPlacementQuizQuestion {
   options?: string[];
   correctAnswer: string | string[];
   explanation: string;
-  level: 'beginner' | 'intermediate' | 'advanced';
+  level: 'beginner' | 'intermediate' | 'advanced' | 'interest';
   points: number;
 }
 
@@ -39,6 +39,7 @@ export interface IUser extends Document {
     completed: boolean;
     score?: number;
     recommendedLevel?: 'beginner' | 'intermediate' | 'advanced';
+    recommendedTrack?: string;
     completedAt?: Date;
     strengths?: string[];
     weaknesses?: string[];
@@ -49,6 +50,17 @@ export interface IUser extends Document {
     generatedAt: Date;
     questions: IPlacementQuizQuestion[];
   };
+  // Course selection — completed before the placement assessment.
+  selectedCourse?: string;
+  selectedCourseId?: mongoose.Types.ObjectId;
+  selectedTrack?: string;
+  courseSelectionCompleted?: boolean;
+  courseSelectedAt?: Date;
+  // Employment readiness score (0-100), seeded from the placement assessment and
+  // intended to evolve as the learner progresses through courses.
+  readinessScore?: number;
+  recommendedCourses?: mongoose.Types.ObjectId[];
+  generatedRoadmapId?: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -101,6 +113,7 @@ const UserSchema = new Schema<IUser, IUserModel>(
       completed: { type: Boolean, default: false },
       score: { type: Number },
       recommendedLevel: { type: String, enum: ['beginner', 'intermediate', 'advanced'] },
+      recommendedTrack: { type: String },
       completedAt: { type: Date },
       strengths: [String],
       weaknesses: [String],
@@ -115,11 +128,19 @@ const UserSchema = new Schema<IUser, IUserModel>(
           options: [String],
           correctAnswer: { type: Schema.Types.Mixed, required: true },
           explanation: { type: String, required: true },
-          level: { type: String, enum: ['beginner', 'intermediate', 'advanced'], required: true },
+          level: { type: String, enum: ['beginner', 'intermediate', 'advanced', 'interest'], required: true },
           points: { type: Number, default: 10 },
         },
       ],
     },
+    selectedCourse: { type: String, trim: true },
+    selectedCourseId: { type: Schema.Types.ObjectId, ref: 'Course' },
+    selectedTrack: { type: String },
+    courseSelectionCompleted: { type: Boolean, default: false },
+    courseSelectedAt: { type: Date },
+    readinessScore: { type: Number, min: 0, max: 100 },
+    recommendedCourses: [{ type: Schema.Types.ObjectId, ref: 'Course' }],
+    generatedRoadmapId: { type: Schema.Types.ObjectId, ref: 'Roadmap' },
   },
   { timestamps: true }
 );

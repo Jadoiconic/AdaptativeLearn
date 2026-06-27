@@ -4,6 +4,8 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
 import { CourseModel, ModuleModel, UserModel } from '@/database/models';
+import { COURSE_CATEGORIES } from '@/database/models/Course';
+import { aiService } from '@/lib/ai-service';
 
 // ======================
 // GET COURSES
@@ -25,37 +27,20 @@ export async function GET(request: NextRequest) {
 
     const skip = (page - 1) * limit;
 
-    // Build filters
     const filter: any = {};
 
-    if (category) {
-      filter.category = category;
-    }
+    if (category) filter.category = category;
+    if (difficulty) filter.difficulty = difficulty;
+    if (instructorId) filter.instructorId = instructorId;
+    if (published !== null) filter.isPublished = published === 'true';
+    if (courseId) filter._id = courseId;
 
-    if (difficulty) {
-      filter.difficulty = difficulty;
-    }
-
-    if (instructorId) {
-      filter.instructorId = instructorId;
-    }
-
-    if (published !== null) {
-      filter.isPublished = published === 'true';
-    }
-
-    if (courseId) {
-      filter._id = courseId;
-    }
-
-    // Fetch courses
     const courses = await CourseModel.find(filter)
       .populate('instructorId', 'name email avatar')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    // Count total
     const total = await CourseModel.countDocuments(filter);
 
     return NextResponse.json({
@@ -70,14 +55,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Get courses error:', error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -88,31 +66,22 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    // Check authentication
     if (
       !session ||
-      (session.user.role !== 'admin' &&
-        session.user.role !== 'instructor')
+      (session.user.role !== 'admin' && session.user.role !== 'instructor')
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Unauthorized. Instructor or Admin access required.',
-        },
+        { success: false, error: 'Unauthorized. Instructor or Admin access required.' },
         { status: 403 }
       );
     }
 
-    // Check if instructor is approved
     if (session.user.role === 'instructor') {
       await connectDB();
       const instructor = await UserModel.findById(session.user.id);
       if (!instructor || !instructor.isApproved) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Your instructor account is not approved yet. Please wait for admin approval.',
-          },
+          { success: false, error: 'Your instructor account is not approved yet.' },
           { status: 403 }
         );
       }
@@ -120,41 +89,62 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // Parse request body
     const {
       title,
       description,
       category,
       difficulty,
       duration,
-      price,
       thumbnail,
-      objectives,
-      requirements,
+      skillsCovered,
+      learningObjectives,
+      internshipReadinessOutcomes,
+      modules,
+      aiQuizEnabled = false,
       isPublished = false,
       instructorId: bodyInstructorId,
     } = await request.json();
 
-    // Validation
     if (!title || !description || !category || !duration) {
+      return NextResponse.json(
+        { success: false, error: 'Title, description, category, and duration are required' },
+        { status: 400 }
+      );
+    }
+
+    if (!COURSE_CATEGORIES.includes(category)) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            'Title, description, category, and duration are required',
+          error: `Invalid category. Must be one of: ${COURSE_CATEGORIES.join(', ')}`,
         },
         { status: 400 }
       );
     }
 
-    // Admin can assign instructor
-    // Instructor uses own ID
     const instructorId =
       session.user.role === 'admin' && bodyInstructorId
         ? bodyInstructorId
         : session.user.id;
 
-    // Create course
+    let resolvedSkills = skillsCovered || [];
+    let resolvedOutcomes = internshipReadinessOutcomes || [];
+
+    if (aiQuizEnabled) {
+      try {
+        const metadata = await aiService.generateCourseMetadata({
+          title,
+          description,
+          category,
+          difficulty: difficulty || 'beginner',
+        });
+        if (resolvedSkills.length === 0) resolvedSkills = metadata.skillTags;
+        if (resolvedOutcomes.length === 0) resolvedOutcomes = metadata.internshipReadinessOutcomes;
+      } catch (aiError) {
+        console.error('AI metadata generation failed, continuing without it:', aiError);
+      }
+    }
+
     const course = new CourseModel({
       title,
       description,
@@ -162,39 +152,29 @@ export async function POST(request: NextRequest) {
       instructorId,
       difficulty,
       duration,
-      price,
       thumbnail,
-      objectives,
-      requirements,
+      skillsCovered: resolvedSkills,
+      learningObjectives: learningObjectives || [],
+      internshipReadinessOutcomes: resolvedOutcomes,
+      modules: modules || [],
+      aiQuizEnabled,
       isPublished,
     });
 
     await course.save();
 
-    // Populate instructor data
     const populatedCourse = await CourseModel.findById(course._id).populate(
       'instructorId',
       'name email avatar'
     );
 
     return NextResponse.json(
-      {
-        success: true,
-        message: 'Course created successfully',
-        course: populatedCourse,
-      },
+      { success: true, message: 'Course created successfully', course: populatedCourse },
       { status: 201 }
     );
   } catch (error) {
     console.error('Create course error:', error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -206,10 +186,7 @@ export async function PUT(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     if (session.user.role !== 'instructor' && session.user.role !== 'admin') {
@@ -219,16 +196,12 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Check if instructor is approved
     if (session.user.role === 'instructor') {
       await connectDB();
       const instructor = await UserModel.findById(session.user.id);
       if (!instructor || !instructor.isApproved) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Your instructor account is not approved yet. Please wait for admin approval.',
-          },
+          { success: false, error: 'Your instructor account is not approved yet.' },
           { status: 403 }
         );
       }
@@ -236,25 +209,41 @@ export async function PUT(request: NextRequest) {
 
     await connectDB();
 
-    const { courseId, title, description, category, difficulty, duration, price, thumbnail, objectives, requirements, isPublished } = await request.json();
+    const {
+      courseId,
+      title,
+      description,
+      category,
+      difficulty,
+      duration,
+      thumbnail,
+      skillsCovered,
+      learningObjectives,
+      internshipReadinessOutcomes,
+      modules,
+      aiQuizEnabled,
+      isPublished,
+    } = await request.json();
 
     if (!courseId) {
+      return NextResponse.json({ success: false, error: 'Course ID is required' }, { status: 400 });
+    }
+
+    if (category && !COURSE_CATEGORIES.includes(category)) {
       return NextResponse.json(
-        { success: false, error: 'Course ID is required' },
+        {
+          success: false,
+          error: `Invalid category. Must be one of: ${COURSE_CATEGORIES.join(', ')}`,
+        },
         { status: 400 }
       );
     }
 
     const course = await CourseModel.findById(courseId);
-
     if (!course) {
-      return NextResponse.json(
-        { success: false, error: 'Course not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
     }
 
-    // Check ownership
     if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized to update this course' },
@@ -262,7 +251,6 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update course
     const updatedCourse = await CourseModel.findByIdAndUpdate(
       courseId,
       {
@@ -271,10 +259,12 @@ export async function PUT(request: NextRequest) {
         category: category || course.category,
         difficulty: difficulty || course.difficulty,
         duration: duration || course.duration,
-        price: price !== undefined ? price : course.price,
-        thumbnail: thumbnail || course.thumbnail,
-        objectives: objectives || course.objectives,
-        requirements: requirements || course.requirements,
+        thumbnail: thumbnail !== undefined ? thumbnail : course.thumbnail,
+        skillsCovered: skillsCovered !== undefined ? skillsCovered : course.skillsCovered,
+        learningObjectives: learningObjectives !== undefined ? learningObjectives : course.learningObjectives,
+        internshipReadinessOutcomes: internshipReadinessOutcomes !== undefined ? internshipReadinessOutcomes : course.internshipReadinessOutcomes,
+        modules: modules !== undefined ? modules : course.modules,
+        aiQuizEnabled: aiQuizEnabled !== undefined ? aiQuizEnabled : course.aiQuizEnabled,
         isPublished: isPublished !== undefined ? isPublished : course.isPublished,
       },
       { new: true }
@@ -287,14 +277,7 @@ export async function PUT(request: NextRequest) {
     });
   } catch (error) {
     console.error('Update course error:', error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -306,10 +289,7 @@ export async function DELETE(request: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     if (session.user.role !== 'instructor' && session.user.role !== 'admin') {
@@ -319,16 +299,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Check if instructor is approved
     if (session.user.role === 'instructor') {
       await connectDB();
       const instructor = await UserModel.findById(session.user.id);
       if (!instructor || !instructor.isApproved) {
         return NextResponse.json(
-          {
-            success: false,
-            error: 'Your instructor account is not approved yet. Please wait for admin approval.',
-          },
+          { success: false, error: 'Your instructor account is not approved yet.' },
           { status: 403 }
         );
       }
@@ -340,22 +316,14 @@ export async function DELETE(request: NextRequest) {
     const courseId = searchParams.get('courseId');
 
     if (!courseId) {
-      return NextResponse.json(
-        { success: false, error: 'Course ID is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: 'Course ID is required' }, { status: 400 });
     }
 
     const course = await CourseModel.findById(courseId);
-
     if (!course) {
-      return NextResponse.json(
-        { success: false, error: 'Course not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: 'Course not found' }, { status: 404 });
     }
 
-    // Check ownership
     if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized to delete this course' },
@@ -363,25 +331,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // Delete associated modules
     await ModuleModel.deleteMany({ courseId });
-
-    // Delete course
     await CourseModel.findByIdAndDelete(courseId);
 
-    return NextResponse.json({
-      success: true,
-      message: 'Course deleted successfully',
-    });
+    return NextResponse.json({ success: true, message: 'Course deleted successfully' });
   } catch (error) {
     console.error('Delete course error:', error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
