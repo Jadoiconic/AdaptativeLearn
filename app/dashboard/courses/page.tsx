@@ -259,7 +259,7 @@ export default function CoursesPage() {
             <CardContent className="p-6 cursor-pointer" onClick={() => router.push(`/dashboard/courses/${course._id}`)}>
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">{course.title}</h3>
-                <p className="text-sm text-slate-600 mb-3">{course.description}</p>
+                <p className="text-sm text-slate-600 mb-3 line-clamp-5">{course.description}</p>
                 <div className="flex items-center justify-between text-sm text-slate-500">
                   <span>By {course.instructorId?.name || 'Unknown'}</span>
                   <div className="flex items-center gap-2">

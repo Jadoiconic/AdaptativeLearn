@@ -120,14 +120,15 @@ export const uploadRawToCloudinary = async (
         const formData = new FormData();
         formData.append("file", file);
         formData.append("upload_preset", UPLOAD_PRESET);
+        formData.append("use_filename", "true");
+        formData.append("unique_filename", "true");
 
         if (options.folder) {
             formData.append("folder", options.folder);
         }
 
-        // Use 'raw' resource type for PDFs and other non-image/video files
         const response = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`,
+            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`,
             { method: "POST", body: formData }
         );
 

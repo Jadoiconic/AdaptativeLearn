@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { uploadVideosToCloudinary, uploadRawToCloudinary } from '@/utils/uploadToCloudinary';
+import PdfViewer from '@/components/pdf-viewer';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -1164,16 +1165,21 @@ export default function ModulesPage() {
                       )}
 
                       {(mod.videoUrl || mod.fileUrl) && (
-                        <div className="flex gap-2 flex-wrap">
-                          {mod.videoUrl && (
-                            <a href={mod.videoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors">
-                              🎥 Watch Video
-                            </a>
-                          )}
+                        <div className="space-y-2">
+                          <div className="flex gap-2 flex-wrap">
+                            {mod.videoUrl && (
+                              <a href={mod.videoUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors">
+                                🎥 Watch Video
+                              </a>
+                            )}
+                            {mod.fileUrl && (
+                              <a href={mod.fileUrl} download target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-medium rounded-lg transition-colors border border-blue-200">
+                                📄 Download File
+                              </a>
+                            )}
+                          </div>
                           {mod.fileUrl && (
-                            <a href={mod.fileUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium rounded-lg transition-colors">
-                              📄 Download File
-                            </a>
+                            <PdfViewer url={mod.fileUrl} height={420} />
                           )}
                         </div>
                       )}
