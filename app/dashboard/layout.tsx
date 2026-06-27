@@ -282,6 +282,23 @@ export default function DashboardLayout({
                     </svg>
                     <span className="font-medium">Manage Modules</span>
                   </Link>
+
+                  <Link
+                    href="/dashboard/instructor/students"
+                    className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      isActiveRoute('/dashboard/instructor/students')
+                        ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    <svg className={`w-5 h-5 transition-colors ${
+                      isActiveRoute('/dashboard/instructor/students') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span className="font-medium">Students</span>
+                  </Link>
                 </>
               )}
             </nav>

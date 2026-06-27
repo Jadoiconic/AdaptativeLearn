@@ -93,6 +93,21 @@ export default function InstructorDashboard() {
         const activityData = await activityResponse.json();
         setActivities(activityData.activities || []);
       }
+
+      // Fetch real student stats
+      const studentsRes = await fetch('/api/instructor/students');
+      if (studentsRes.ok) {
+        const sd = await studentsRes.json();
+        setStats((prev) =>
+          prev
+            ? {
+                ...prev,
+                totalStudents: sd.summary?.totalStudents ?? prev.totalStudents,
+                completionRate: sd.summary?.avgProgressPercentage ?? prev.completionRate,
+              }
+            : prev
+        );
+      }
     } catch (error) {
       console.error('Error fetching instructor data:', error);
     } finally {
@@ -368,7 +383,10 @@ export default function InstructorDashboard() {
                     Manage Modules
                   </div>
                 </button>
-                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 border border-gray-200">
+                <button
+                  onClick={() => router.push('/dashboard/instructor/students')}
+                  className="w-full px-4 py-3 text-left hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 border border-gray-200"
+                >
                   <div className="flex items-center gap-3">
                     <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
