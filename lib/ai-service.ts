@@ -65,6 +65,63 @@ export interface AIProvider {
   generateQuiz(moduleContent: ModuleContent): Promise<GeneratedQuiz>;
   generateLevelAssessment(domain: string): Promise<GeneratedLevelAssessment>;
   generateCourseMetadata(course: CourseMetadataInput): Promise<GeneratedCourseMetadata>;
+  generateModuleAssist(input: ModuleAssistInput): Promise<GeneratedModuleAssist>;
+}
+
+export interface ModuleAssistInput {
+  title: string;
+  description: string;
+  category?: string;
+  difficulty?: string;
+}
+
+export interface GeneratedModuleAssist {
+  objectives: string[];
+  skillsCovered: string[];
+  internshipOutcome: string;
+  estimatedTime: string;
+}
+
+function buildModuleAssistPrompt(input: ModuleAssistInput): string {
+  return `You are an expert curriculum designer for an AI-powered internship training platform.
+
+Generate structured content for this training module:
+Title: ${input.title}
+Description: ${input.description}
+Category: ${input.category || 'General'}
+Difficulty: ${input.difficulty || 'beginner'}
+
+Return ONLY valid JSON with this exact structure:
+{
+  "objectives": [
+    "Learning objective 1",
+    "Learning objective 2",
+    "Learning objective 3",
+    "Learning objective 4"
+  ],
+  "skillsCovered": ["Skill 1", "Skill 2", "Skill 3", "Skill 4", "Skill 5"],
+  "internshipOutcome": "A single sentence describing how this module prepares trainees for real internship and employment environments.",
+  "estimatedTime": "2 hours"
+}
+
+Requirements:
+- objectives: 4-5 concrete, measurable learning objectives starting with action verbs (e.g., "Configure", "Implement", "Analyze")
+- skillsCovered: 4-6 specific technical or professional skills trainees will gain
+- internshipOutcome: one clear, compelling statement about internship/employment readiness
+- estimatedTime: realistic time estimate (e.g., "45 minutes", "2 hours", "3 days")
+- Return ONLY valid JSON, no additional text`;
+}
+
+function parseModuleAssistResponse(content: string): GeneratedModuleAssist {
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON found in response');
+  const data = JSON.parse(jsonMatch[0]);
+  return {
+    objectives: Array.isArray(data.objectives) ? data.objectives : [],
+    skillsCovered: Array.isArray(data.skillsCovered) ? data.skillsCovered : [],
+    internshipOutcome: typeof data.internshipOutcome === 'string' ? data.internshipOutcome : '',
+    estimatedTime: typeof data.estimatedTime === 'string' ? data.estimatedTime : '',
+  };
 }
 
 function buildCourseMetadataPrompt(course: CourseMetadataInput): string {
@@ -325,6 +382,31 @@ class OpenAIProvider implements AIProvider {
     }
   }
 
+  async generateModuleAssist(input: ModuleAssistInput): Promise<GeneratedModuleAssist> {
+    const prompt = buildModuleAssistPrompt(input);
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.apiKey}` },
+        body: JSON.stringify({
+          model: this.model,
+          messages: [
+            { role: 'system', content: 'You are an expert curriculum designer for internship training programs.' },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 800,
+        }),
+      });
+      if (!response.ok) throw new Error(`OpenAI API error: ${response.statusText}`);
+      const data = await response.json();
+      return parseModuleAssistResponse(data.choices[0].message.content);
+    } catch (error) {
+      console.error('OpenAI module assist error:', error);
+      throw new Error('Failed to generate module content with OpenAI');
+    }
+  }
+
   private buildPrompt(content: ModuleContent): string {
     return `Based on this module content, automatically generate a professional pre-course assessment quiz to evaluate a new student's current knowledge level.
 
@@ -471,6 +553,29 @@ class GeminiProvider implements AIProvider {
     } catch (error) {
       console.error('Gemini course metadata generation error:', error);
       throw new Error('Failed to generate course metadata with Gemini');
+    }
+  }
+
+  async generateModuleAssist(input: ModuleAssistInput): Promise<GeneratedModuleAssist> {
+    const prompt = buildModuleAssistPrompt(input);
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
+          }),
+        }
+      );
+      if (!response.ok) throw new Error(`Gemini API error: ${response.statusText}`);
+      const data = await response.json();
+      return parseModuleAssistResponse(data.candidates[0].content.parts[0].text);
+    } catch (error) {
+      console.error('Gemini module assist error:', error);
+      throw new Error('Failed to generate module content with Gemini');
     }
   }
 
@@ -644,6 +749,24 @@ export class AIService {
         lastError = error as Error;
         console.error(`Level assessment generation attempt ${i + 1} failed:`, error);
 
+        if (i < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+        }
+      }
+    }
+
+    throw lastError;
+  }
+
+  async generateModuleAssist(input: ModuleAssistInput): Promise<GeneratedModuleAssist> {
+    const maxRetries = 3;
+    let lastError: Error = new Error('Failed to generate module assist after retries');
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        return await this.provider.generateModuleAssist(input);
+      } catch (error) {
+        lastError = error as Error;
         if (i < maxRetries - 1) {
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
         }

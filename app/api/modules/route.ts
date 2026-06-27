@@ -159,11 +159,16 @@ export async function POST(request: NextRequest) {
       order,
       difficulty,
       type,
+      objectives,
+      estimatedTime,
+      skillsCovered,
+      aiQuizEnabled,
+      internshipOutcome,
       videoUrl,
       fileUrl,
       isPublished = false,
     } = await request.json();
-    
+
     if (!courseId || !title || !description || !content) {
       return NextResponse.json(
         {
@@ -173,7 +178,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     const course = await CourseModel.findById(courseId);
     if (!course) {
       return NextResponse.json(
@@ -184,7 +189,7 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-    
+
     if (session.user.role === 'instructor' && course.instructorId.toString() !== session.user.id) {
       return NextResponse.json(
         {
@@ -194,7 +199,7 @@ export async function POST(request: NextRequest) {
         { status: 403 }
       );
     }
-    
+
     const module = new ModuleModel({
       courseId,
       title,
@@ -203,9 +208,15 @@ export async function POST(request: NextRequest) {
       order,
       difficulty,
       type,
+      objectives: objectives || [],
+      estimatedTime: estimatedTime || '',
+      skillsCovered: skillsCovered || [],
+      aiQuizEnabled: aiQuizEnabled || false,
+      internshipOutcome: internshipOutcome || '',
       videoUrl,
       fileUrl,
       isPublished,
+      createdBy: session.user.id,
     });
     
     await module.save();
@@ -288,6 +299,11 @@ export async function PUT(request: NextRequest) {
       order,
       difficulty,
       type,
+      objectives,
+      estimatedTime,
+      skillsCovered,
+      aiQuizEnabled,
+      internshipOutcome,
       videoUrl,
       fileUrl,
       isPublished,
@@ -348,6 +364,11 @@ export async function PUT(request: NextRequest) {
         order: order !== undefined ? order : module.order,
         difficulty: difficulty || module.difficulty,
         type: type || module.type,
+        objectives: objectives !== undefined ? objectives : module.objectives,
+        estimatedTime: estimatedTime !== undefined ? estimatedTime : module.estimatedTime,
+        skillsCovered: skillsCovered !== undefined ? skillsCovered : module.skillsCovered,
+        aiQuizEnabled: aiQuizEnabled !== undefined ? aiQuizEnabled : module.aiQuizEnabled,
+        internshipOutcome: internshipOutcome !== undefined ? internshipOutcome : module.internshipOutcome,
         videoUrl: videoUrl !== undefined ? videoUrl : module.videoUrl,
         fileUrl: fileUrl !== undefined ? fileUrl : module.fileUrl,
         isPublished: isPublished !== undefined ? isPublished : module.isPublished,
