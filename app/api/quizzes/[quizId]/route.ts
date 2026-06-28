@@ -3,16 +3,15 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
 import { QuizModel, CourseModel } from '@/database/models';
-import { aiService } from '@/lib/ai-service';
 
 // GET - Get specific quiz by ID
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { quizId: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -20,12 +19,13 @@ export async function GET(
       );
     }
 
+    const { quizId } = await params;
     await connectDB();
-    
-    const quiz = await QuizModel.findById(params.quizId)
+
+    const quiz = await QuizModel.findById(quizId)
       .populate('moduleId', 'title')
       .populate('courseId', 'title');
-    
+
     if (!quiz) {
       return NextResponse.json(
         { success: false, error: 'Quiz not found' },
@@ -33,7 +33,6 @@ export async function GET(
       );
     }
 
-    // Check permissions
     if (session.user.role === 'instructor') {
       const course = await CourseModel.findById(quiz.courseId);
       if (!course || course.instructorId.toString() !== session.user.id) {
@@ -44,10 +43,7 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      quiz,
-    });
+    return NextResponse.json({ success: true, quiz });
   } catch (error) {
     console.error('Get quiz error:', error);
     return NextResponse.json(
@@ -60,11 +56,11 @@ export async function GET(
 // PUT - Update quiz
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { quizId: string } }
+  { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -79,9 +75,10 @@ export async function PUT(
       );
     }
 
+    const { quizId } = await params;
     await connectDB();
-    
-    const quiz = await QuizModel.findById(params.quizId);
+
+    const quiz = await QuizModel.findById(quizId);
     if (!quiz) {
       return NextResponse.json(
         { success: false, error: 'Quiz not found' },
@@ -89,7 +86,6 @@ export async function PUT(
       );
     }
 
-    // Check permissions
     if (session.user.role === 'instructor') {
       const course = await CourseModel.findById(quiz.courseId);
       if (!course || course.instructorId.toString() !== session.user.id) {
@@ -101,16 +97,8 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const {
-      title,
-      description,
-      questions,
-      passingScore,
-      timeLimit,
-      status,
-    } = body;
+    const { title, description, questions, passingScore, timeLimit, status } = body;
 
-    // Update quiz fields
     if (title !== undefined) quiz.title = title;
     if (description !== undefined) quiz.description = description;
     if (questions !== undefined) quiz.questions = questions;
@@ -119,7 +107,7 @@ export async function PUT(
     if (status !== undefined) {
       quiz.status = status;
       if (status === 'published') {
-        quiz.generatedBy = 'manual'; // Mark as manually edited/published
+        quiz.generatedBy = 'manual';
       }
     }
 
@@ -141,12 +129,12 @@ export async function PUT(
 
 // DELETE - Delete quiz
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { quizId: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ quizId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
@@ -161,9 +149,10 @@ export async function DELETE(
       );
     }
 
+    const { quizId } = await params;
     await connectDB();
-    
-    const quiz = await QuizModel.findById(params.quizId);
+
+    const quiz = await QuizModel.findById(quizId);
     if (!quiz) {
       return NextResponse.json(
         { success: false, error: 'Quiz not found' },
@@ -171,7 +160,6 @@ export async function DELETE(
       );
     }
 
-    // Check permissions
     if (session.user.role === 'instructor') {
       const course = await CourseModel.findById(quiz.courseId);
       if (!course || course.instructorId.toString() !== session.user.id) {
@@ -182,7 +170,7 @@ export async function DELETE(
       }
     }
 
-    await QuizModel.findByIdAndDelete(params.quizId);
+    await QuizModel.findByIdAndDelete(quizId);
 
     return NextResponse.json({
       success: true,

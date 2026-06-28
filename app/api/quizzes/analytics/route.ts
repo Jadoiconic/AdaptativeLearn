@@ -45,7 +45,8 @@ export async function GET(request: NextRequest) {
     const results = await QuizResultModel.find(filter)
       .populate('quizId', 'title questions')
       .populate('moduleId', 'title')
-      .populate('studentId', 'name email');
+      .populate('studentId', 'name email')
+      .lean<any[]>();
 
     if (results.length === 0) {
       return NextResponse.json({
@@ -76,11 +77,12 @@ export async function GET(request: NextRequest) {
     }, { beginner: 0, intermediate: 0, advanced: 0 });
 
     // Difficulty breakdown (if quiz data available)
-    const difficultyBreakdown = {};
-    if (results[0].quizId && results[0].quizId.questions) {
-      const questions = results[0].quizId.questions;
-      questions.forEach((q: any) => {
-        const correctCount = results.filter(r => 
+    const difficultyBreakdown: Record<string, { total: number; correct: number; accuracy: number }> = {};
+    const firstQuiz = results[0]?.quizId as any;
+    if (firstQuiz?.questions) {
+      const questions: any[] = firstQuiz.questions;
+      questions.forEach((q) => {
+        const correctCount = results.filter((r) =>
           r.answers.find((a: any) => a.questionId === q.id && a.isCorrect)
         ).length;
         difficultyBreakdown[q.difficulty] = {
@@ -95,10 +97,10 @@ export async function GET(request: NextRequest) {
     const weakTopics: string[] = [];
     const strongTopics: string[] = [];
 
-    if (results[0].quizId && results[0].quizId.questions) {
-      const questions = results[0].quizId.questions;
-      questions.forEach((q: any) => {
-        const correctCount = results.filter(r => 
+    if (firstQuiz?.questions) {
+      const questions: any[] = firstQuiz.questions;
+      questions.forEach((q) => {
+        const correctCount = results.filter((r) =>
           r.answers.find((a: any) => a.questionId === q.id && a.isCorrect)
         ).length;
         const accuracy = (correctCount / totalAttempts) * 100;
@@ -131,8 +133,8 @@ export async function GET(request: NextRequest) {
           readyForIntermediate: Math.round(readyForIntermediate * 10) / 10,
           needsBeginner: Math.round(levelDistribution.beginner / totalAttempts * 100 * 10) / 10,
         },
-        recentResults: results.slice(0, 10).map(r => ({
-          studentName: r.studentId.name,
+        recentResults: results.slice(0, 10).map((r) => ({
+          studentName: (r.studentId as any)?.name,
           score: r.percentage,
           passed: r.passed,
           level: r.recommendedLevel,
