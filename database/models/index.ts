@@ -10,6 +10,9 @@ import QuizModel from './Quiz';
 import QuizResultModel from './QuizResult';
 import RoadmapModel from './Roadmap';
 import SkillGapAnalysisModel from './SkillGapAnalysis';
+import ResourceModel from './Resource';
+import CommunityContributionModel from './CommunityContribution';
+import ExpertReviewModel from './ExpertReview';
 
 export {
   UserModel,
@@ -24,6 +27,9 @@ export {
   QuizResultModel,
   RoadmapModel,
   SkillGapAnalysisModel,
+  ResourceModel,
+  CommunityContributionModel,
+  ExpertReviewModel,
 };
 
 export default {
@@ -39,4 +45,7 @@ export default {
   QuizResult: QuizResultModel,
   Roadmap: RoadmapModel,
   SkillGapAnalysis: SkillGapAnalysisModel,
+  Resource: ResourceModel,
+  CommunityContribution: CommunityContributionModel,
+  ExpertReview: ExpertReviewModel,
 };

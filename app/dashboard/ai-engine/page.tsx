@@ -745,6 +745,52 @@ export default function AIEnginePage() {
         </div>
       )}
 
+      {/* ── Recommended Resources ───────────────────────────────────────────── */}
+      {analysis && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <svg className="w-4 h-4 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              Recommended Resources
+            </h2>
+            <a
+              href="/dashboard/resources"
+              className="text-xs text-violet-600 hover:text-violet-800 font-medium flex items-center gap-1"
+            >
+              View all
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </a>
+          </div>
+          <p className="text-xs text-gray-500 mb-4">
+            AI-matched learning materials based on your detected skill gaps. Visit the{' '}
+            <a href="/dashboard/resources" className="text-violet-600 underline">Resources Library</a>{' '}
+            for the full catalogue, community contributions, and expert-verified content.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {analysis.skillGaps.slice(0, 4).map((gap) => (
+              <div key={gap.skill} className="flex items-start gap-3 p-4 bg-violet-50 rounded-lg border border-violet-100">
+                <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${gap.priority === 'high' ? 'bg-red-500' : gap.priority === 'medium' ? 'bg-yellow-500' : 'bg-green-500'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-violet-900">{gap.skill}</p>
+                  <p className="text-xs text-violet-600 mt-0.5 line-clamp-2">{gap.reason}</p>
+                  <a
+                    href={`/dashboard/resources?search=${encodeURIComponent(gap.skill)}`}
+                    className="inline-block mt-1.5 text-xs text-violet-700 underline hover:text-violet-900"
+                  >
+                    Find resources →
+                  </a>
+                </div>
+                <span className="text-xs text-violet-500 whitespace-nowrap">{gap.estimatedHours}h</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Empty state ─────────────────────────────────────────────────────── */}
       {!analysis && profile?.placementAssessment?.completed && (
         <div className="bg-white rounded-xl border border-dashed border-gray-300 p-10 text-center">
