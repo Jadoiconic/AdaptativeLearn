@@ -6,6 +6,13 @@ import RecommendationModel from './Recommendation';
 import AssessmentModel from './Assessment';
 import ActivityModel from './Activity';
 import CertificateModel from './Certificate';
+import QuizModel from './Quiz';
+import QuizResultModel from './QuizResult';
+import RoadmapModel from './Roadmap';
+import SkillGapAnalysisModel from './SkillGapAnalysis';
+import ResourceModel from './Resource';
+import CommunityContributionModel from './CommunityContribution';
+import ExpertReviewModel from './ExpertReview';
 
 export {
   UserModel,
@@ -16,6 +23,13 @@ export {
   AssessmentModel,
   ActivityModel,
   CertificateModel,
+  QuizModel,
+  QuizResultModel,
+  RoadmapModel,
+  SkillGapAnalysisModel,
+  ResourceModel,
+  CommunityContributionModel,
+  ExpertReviewModel,
 };
 
 export default {
@@ -27,4 +41,11 @@ export default {
   Assessment: AssessmentModel,
   Activity: ActivityModel,
   Certificate: CertificateModel,
+  Quiz: QuizModel,
+  QuizResult: QuizResultModel,
+  Roadmap: RoadmapModel,
+  SkillGapAnalysis: SkillGapAnalysisModel,
+  Resource: ResourceModel,
+  CommunityContribution: CommunityContributionModel,
+  ExpertReview: ExpertReviewModel,
 };

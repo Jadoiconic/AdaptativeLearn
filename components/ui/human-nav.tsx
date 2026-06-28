@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { HumanButton } from './human-button';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,25 @@ export function HumanNav({ variant = 'landing' }: HumanNavProps) {
   const router = useRouter();
 
   const handleSignOut = async () => {
-    router.push('/auth/signin');
+    try {
+      await signOut({ 
+        redirect: false,
+        callbackUrl: '/auth/signin'
+      });
+      
+      // Clear any local storage data
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        sessionStorage.clear();
+      }
+      
+      // Redirect to signin page
+      router.push('/auth/signin');
+      router.refresh();
+    } catch (error) {
+      console.error('Sign out error:', error);
+      router.push('/auth/signin');
+    }
   };
 
   if (variant === 'dashboard') {

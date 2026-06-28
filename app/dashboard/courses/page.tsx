@@ -6,6 +6,13 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const COURSE_CATEGORIES = [
+  'Networking',
+  'CCTV Camera Systems',
+  'Embedded Systems',
+  'Software Development',
+] as const;
+
 interface Course {
   _id: string;
   title: string;
@@ -37,10 +44,7 @@ export default function CoursesPage() {
     category: '',
     difficulty: 'beginner',
     duration: '',
-    price: 0,
     thumbnail: '',
-    objectives: '',
-    requirements: '',
     isPublished: false,
   });
 
@@ -150,10 +154,7 @@ export default function CoursesPage() {
       category: course.category,
       difficulty: course.difficulty,
       duration: course.duration,
-      price: 0,
       thumbnail: course.thumbnail || '',
-      objectives: '',
-      requirements: '',
       isPublished: course.isPublished,
     });
     setShowEditModal(true);
@@ -258,7 +259,7 @@ export default function CoursesPage() {
             <CardContent className="p-6 cursor-pointer" onClick={() => router.push(`/dashboard/courses/${course._id}`)}>
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">{course.title}</h3>
-                <p className="text-sm text-slate-600 mb-3">{course.description}</p>
+                <p className="text-sm text-slate-600 mb-3 line-clamp-5">{course.description}</p>
                 <div className="flex items-center justify-between text-sm text-slate-500">
                   <span>By {course.instructorId?.name || 'Unknown'}</span>
                   <div className="flex items-center gap-2">
@@ -375,13 +376,17 @@ export default function CoursesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Category *</label>
-                  <input
-                    type="text"
+                  <select
                     value={editFormData.category}
                     onChange={(e) => setEditFormData({...editFormData, category: e.target.value})}
                     required
                     className="w-full px-4 py-2 border text-slate-700 border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">Select a category</option>
+                    {COURSE_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Difficulty *</label>

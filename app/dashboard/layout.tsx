@@ -3,8 +3,9 @@
 import { useSession } from 'next-auth/react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { HumanNav } from '@/components/ui/human-nav';
+import { InstructorApprovalGate } from '@/components/instructor-approval-gate';
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,8 @@ export default function DashboardLayout({
   const { data: session, status } = useSession();
   const router = useRouter();
   const pathname = usePathname();
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const [placementCompleted, setPlacementCompleted] = useState<boolean | null>(null);
 
   const isActiveRoute = (route: string) => {
     if (route === '/dashboard') {
@@ -23,8 +26,76 @@ export default function DashboardLayout({
   };
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin');
+    // Check for session expiration on mount and pathname changes
+    const checkSession = () => {
+      if (status === 'unauthenticated') {
+        setSessionExpired(true);
+        // Add a small delay to show the message before redirecting
+        setTimeout(() => {
+          router.push('/auth/signin?message=Your session has expired. Please log in again.');
+        }, 2000);
+      }
+    };
+
+    checkSession();
+  }, [status, router]);
+
+  // Check the database directly for onboarding state — the JWT session only reflects
+  // the state at last login and can be stale.
+  useEffect(() => {
+    if (status === 'authenticated' && session?.user?.role === 'student') {
+      fetch('/api/users/me')
+        .then((res) => res.json())
+        .then((data) => {
+          const placementDone = !!data.user?.placementAssessment?.completed;
+          const courseSelectionDone = !!data.user?.courseSelectionCompleted;
+          setPlacementCompleted(placementDone);
+
+          // Gate: for new accounts that haven't picked a course yet, go to course selection.
+          // Skip this gate for existing accounts that already completed placement (they
+          // went through the old flow without course selection).
+          if (!placementDone && !courseSelectionDone) {
+            router.push('/course-selection');
+          }
+        })
+        .catch(() => setPlacementCompleted(!!session.user.placementAssessment?.completed));
+    }
+  }, [status, session?.user?.id, session?.user?.role]);
+
+  // If course selection is done but placement assessment isn't, redirect there.
+  useEffect(() => {
+    if (
+      status === 'authenticated' &&
+      session?.user?.role === 'student' &&
+      placementCompleted === false &&
+      pathname !== '/placement-assessment'
+    ) {
+      router.push('/placement-assessment');
+    }
+  }, [status, session, placementCompleted, pathname, router]);
+
+  // Prevent back button access after logout
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Push a new state to the history stack
+      window.history.pushState(null, '', window.location.href);
+      
+      // Handle popstate event (back button)
+      const handlePopState = (event: PopStateEvent) => {
+        event.preventDefault();
+        window.history.pushState(null, '', window.location.href);
+        
+        // If user is not authenticated, redirect to signin
+        if (status === 'unauthenticated') {
+          router.push('/auth/signin?message=Your session has expired. Please log in again.');
+        }
+      };
+
+      window.addEventListener('popstate', handlePopState);
+
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
     }
   }, [status, router]);
 
@@ -35,6 +106,23 @@ export default function DashboardLayout({
           <div className="w-12 h-12 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
           <div className="text-lg font-medium text-slate-700">Loading...</div>
           <div className="text-sm text-slate-500 mt-1">Preparing your workspace</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (sessionExpired) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Session Expired</h2>
+          <p className="text-slate-600 mb-6">Your session has expired. Please log in again to continue.</p>
+          <div className="w-12 h-12 border-3 border-slate-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
         </div>
       </div>
     );
@@ -105,7 +193,42 @@ export default function DashboardLayout({
                   <span className="font-medium">Progress</span>
                 </Link>
               )}
-              
+
+              {session?.user?.role === 'student' && (
+                <Link
+                  href="/dashboard/ai-engine"
+                  className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                    isActiveRoute('/dashboard/ai-engine')
+                      ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 transition-colors ${
+                    isActiveRoute('/dashboard/ai-engine') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="font-medium">AI Engine</span>
+                  <span className="ml-auto px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded-full leading-tight">AI</span>
+                </Link>
+              )}
+
+              <Link
+                href="/dashboard/resources"
+                className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                  isActiveRoute('/dashboard/resources')
+                    ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <svg className={`w-5 h-5 transition-colors ${
+                  isActiveRoute('/dashboard/resources') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <span className="font-medium">Resources</span>
+              </Link>
+
               <Link
                 href="/dashboard/profile"
                 className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
@@ -194,6 +317,23 @@ export default function DashboardLayout({
                     </svg>
                     <span className="font-medium">Manage Modules</span>
                   </Link>
+
+                  <Link
+                    href="/dashboard/instructor/students"
+                    className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                      isActiveRoute('/dashboard/instructor/students')
+                        ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    }`}
+                  >
+                    <svg className={`w-5 h-5 transition-colors ${
+                      isActiveRoute('/dashboard/instructor/students') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span className="font-medium">Students</span>
+                  </Link>
                 </>
               )}
             </nav>
@@ -203,7 +343,9 @@ export default function DashboardLayout({
         {/* Main Content */}
         <main className="flex-1 bg-gradient-to-br from-gray-50 via-white to-blue-50 ml-64">
           <div className="p-8">
-            {children}
+            <InstructorApprovalGate>
+              {children}
+            </InstructorApprovalGate>
           </div>
         </main>
       </div>

@@ -7,10 +7,16 @@ export interface IModule extends Document {
   content: string;
   order: number;
   difficulty: 'beginner' | 'intermediate' | 'advanced';
-  type: 'lesson' | 'video' | 'quiz' | 'exercise';
+  type: 'lesson' | 'video' | 'pdf' | 'tutorial' | 'exercise' | 'quiz' | 'assignment' | 'lab';
+  objectives: string[];
+  estimatedTime: string;
+  skillsCovered: string[];
+  aiQuizEnabled: boolean;
+  internshipOutcome: string;
   videoUrl?: string;
   fileUrl?: string;
   assessmentId?: mongoose.Types.ObjectId;
+  createdBy?: mongoose.Types.ObjectId;
   isPublished: boolean;
 }
 
@@ -46,8 +52,30 @@ const ModuleSchema = new Schema<IModule>({
   },
   type: {
     type: String,
-    enum: ['lesson', 'video', 'quiz', 'exercise'],
+    enum: ['lesson', 'video', 'pdf', 'tutorial', 'exercise', 'quiz', 'assignment', 'lab'],
     default: 'lesson',
+  },
+  objectives: {
+    type: [String],
+    default: [],
+  },
+  estimatedTime: {
+    type: String,
+    default: '',
+    trim: true,
+  },
+  skillsCovered: {
+    type: [String],
+    default: [],
+  },
+  aiQuizEnabled: {
+    type: Boolean,
+    default: false,
+  },
+  internshipOutcome: {
+    type: String,
+    default: '',
+    trim: true,
   },
   videoUrl: {
     type: String,
@@ -60,6 +88,10 @@ const ModuleSchema = new Schema<IModule>({
   assessmentId: {
     type: Schema.Types.ObjectId,
     ref: 'Assessment',
+  },
+  createdBy: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
   },
   isPublished: {
     type: Boolean,

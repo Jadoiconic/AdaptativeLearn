@@ -13,6 +13,8 @@ interface User {
   email: string;
   role: string;
   avatar?: string;
+  isActive: boolean;
+  isApproved?: boolean;
   createdAt: string;
 }
 
@@ -83,6 +85,35 @@ export default function AdminUsersPage() {
     }
   };
 
+  const getApprovalColor = (isApproved?: boolean) => {
+    if (isApproved === undefined) return 'bg-gray-100 text-gray-700 border-gray-200';
+    return isApproved
+      ? 'bg-green-100 text-green-700 border-green-200'
+      : 'bg-yellow-100 text-yellow-700 border-yellow-200';
+  };
+
+  const handleApproval = async (userId: string, isApproved: boolean) => {
+    try {
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: userId, isApproved }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || 'Failed to update approval status');
+        return;
+      }
+
+      // Refresh users list
+      fetchUsers();
+    } catch (error) {
+      console.error('Error updating approval status:', error);
+      alert('Failed to update approval status');
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto">
@@ -145,8 +176,79 @@ export default function AdminUsersPage() {
             <option value="instructor">Instructor</option>
             <option value="student">Student</option>
           </select>
+          <select
+            value={roleFilter === 'instructor' ? 'pending' : ''}
+            onChange={(e) => {
+              if (e.target.value === 'pending') {
+                setRoleFilter('instructor');
+              } else {
+                setRoleFilter('');
+              }
+              setPage(1);
+            }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+          >
+            <option value="">All Status</option>
+            <option value="pending">Pending Approval</option>
+          </select>
         </div>
       </div>
+
+      {/* Pending Approvals Section */}
+      {users.filter(u => u.role === 'instructor' && !u.isApproved).length > 0 && (
+        <Card className="mb-6 border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="text-yellow-800">
+              Pending Instructor Approvals ({users.filter(u => u.role === 'instructor' && !u.isApproved).length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {users.filter(u => u.role === 'instructor' && !u.isApproved).map((user) => (
+                <div key={user._id} className="flex items-center justify-between p-4 bg-white rounded-lg border border-yellow-200">
+                  <div className="flex items-center gap-4">
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.name}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold">
+                        {user.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{user.name}</h3>
+                      <p className="text-sm text-slate-600">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-500">
+                      Joined {new Date(user.createdAt).toLocaleDateString()}
+                    </span>
+                    <Button
+                      onClick={() => handleApproval(user._id, true)}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      Approve
+                    </Button>
+                    <Button
+                      onClick={() => handleApproval(user._id, false)}
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 border-red-600 hover:bg-red-50"
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Users Table */}
       <Card>
@@ -174,13 +276,40 @@ export default function AdminUsersPage() {
                     <p className="text-sm text-slate-600">{user.email}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getRoleColor(user.role)}`}>
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                   </span>
+                  {user.role === 'instructor' && (
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getApprovalColor(user.isApproved)}`}>
+                      {user.isApproved ? 'Approved' : 'Pending'}
+                    </span>
+                  )}
                   <span className="text-sm text-slate-500">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </span>
+                  {user.role === 'admin' && (
+                    <div className="flex items-center gap-2 ml-2">
+                      {!user.isApproved ? (
+                        <Button
+                          onClick={() => handleApproval(user._id, true)}
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          Approve
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleApproval(user._id, false)}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-600 hover:bg-red-50"
+                        >
+                          Revoke
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
