@@ -9,6 +9,7 @@ import CertificateModel from './Certificate';
 import QuizModel from './Quiz';
 import QuizResultModel from './QuizResult';
 import RoadmapModel from './Roadmap';
+import SkillGapAnalysisModel from './SkillGapAnalysis';
 
 export {
   UserModel,
@@ -22,6 +23,7 @@ export {
   QuizModel,
   QuizResultModel,
   RoadmapModel,
+  SkillGapAnalysisModel,
 };
 
 export default {
@@ -36,4 +38,5 @@ export default {
   Quiz: QuizModel,
   QuizResult: QuizResultModel,
   Roadmap: RoadmapModel,
+  SkillGapAnalysis: SkillGapAnalysisModel,
 };

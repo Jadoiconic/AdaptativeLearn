@@ -360,52 +360,6 @@ export default function InstructorDashboard() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Quick Actions */}
-          <Card className="border-gray-200">
-            <CardHeader>
-              <CardTitle className="text-gray-900">Quick Actions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Create New Course
-                  </div>
-                </button>
-                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-6M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                    </svg>
-                    Manage Modules
-                  </div>
-                </button>
-                <button
-                  onClick={() => router.push('/dashboard/instructor/students')}
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 border border-gray-200"
-                >
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    View Student Progress
-                  </div>
-                </button>
-                <button className="w-full px-4 py-3 text-left hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all duration-200 border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v1a1 1 0 001 1h4a1 1 0 001-1v-1m3-2V8a2 2 0 00-2-2H8a2 2 0 00-2 2v8m3 0h6" />
-                    </svg>
-                    Generate Reports
-                  </div>
-                </button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Recent Activity */}
           <Card className="border-gray-200">
             <CardHeader>

@@ -89,6 +89,58 @@ export const COURSE_OPTIONS: CourseOption[] = [
   },
 ];
 
+// Required skills per track — used by the AI skill gap analysis engine.
+export const TRACK_REQUIRED_SKILLS: Record<RecommendedTrack, string[]> = {
+  'software-development': [
+    'HTML',
+    'CSS',
+    'JavaScript',
+    'React.js',
+    'Node.js',
+    'REST APIs',
+    'MongoDB',
+    'Authentication',
+    'Git/GitHub',
+    'Deployment',
+  ],
+  networking: [
+    'OSI Model',
+    'TCP/IP',
+    'IP Addressing',
+    'Subnetting',
+    'Router Configuration',
+    'Switch Configuration',
+    'VLANs',
+    'Wireless Networking',
+    'Cisco IOS CLI',
+    'Network Troubleshooting',
+  ],
+  cctv: [
+    'Camera Types (Analog/IP)',
+    'DVR/NVR Setup',
+    'Cable Installation',
+    'IP Camera Networking',
+    'PoE Technology',
+    'Video Compression',
+    'ONVIF Standard',
+    'Remote Monitoring',
+    'Storage Planning',
+    'Security Compliance',
+  ],
+  'embedded-systems': [
+    'Microcontroller Architecture',
+    'Embedded C',
+    'GPIO Programming',
+    'PWM & ADC',
+    'I2C Protocol',
+    'SPI Protocol',
+    'UART Communication',
+    'Arduino',
+    'Raspberry Pi',
+    'RTOS Basics',
+  ],
+};
+
 // Maps each interest option text to its track slug.
 // Options are always in a fixed order: networking, embedded-systems, cctv, software-development.
 export const INTEREST_OPTION_TO_TRACK: Record<string, RecommendedTrack> = {

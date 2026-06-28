@@ -76,12 +76,58 @@ export interface GeneratedModuleAssist {
   estimatedTime: string;
 }
 
+// ─── Skill Gap Analysis interfaces ────────────────────────────────────────────
+
+export interface SkillGapInput {
+  track: string;
+  trackDescription: string;
+  requiredSkills: string[];
+  currentSkills: string[];
+  careerGoal?: string;
+  assessmentScore?: number;
+}
+
+export interface SkillGap {
+  skill: string;
+  priority: 'high' | 'medium' | 'low';
+  reason: string;
+  estimatedHours: number;
+}
+
+export interface RoadmapPhase {
+  phase: number;
+  title: string;
+  description: string;
+  skills: string[];
+  topics: string[];
+  estimatedDuration: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+}
+
+export interface ReadinessScores {
+  technicalSkills: number;
+  practicalReadiness: number;
+  internshipReadiness: number;
+  overall: number;
+}
+
+export interface SkillGapAnalysisResult {
+  skillGaps: SkillGap[];
+  masteredSkills: string[];
+  roadmap: RoadmapPhase[];
+  readinessScores: ReadinessScores;
+  estimatedDuration: string;
+  nextSteps: string[];
+  aiNotes: string;
+}
+
 export interface AIProvider {
   name: string;
   generateQuiz(moduleContent: ModuleContent): Promise<GeneratedQuiz>;
   generateLevelAssessment(domain: string): Promise<GeneratedLevelAssessment>;
   generateCourseMetadata(course: CourseMetadataInput): Promise<GeneratedCourseMetadata>;
   generateModuleAssist(input: ModuleAssistInput): Promise<GeneratedModuleAssist>;
+  generateSkillGapAnalysis(input: SkillGapInput): Promise<SkillGapAnalysisResult>;
 }
 
 export interface ModuleContent {
@@ -201,6 +247,61 @@ Return ONLY valid JSON:
 }`;
 }
 
+function buildSkillGapPrompt(input: SkillGapInput): string {
+  const currentList = input.currentSkills.length > 0 ? input.currentSkills.join(', ') : 'None reported';
+  return `You are an AI career counselor for a technology internship training platform. Perform a skill gap analysis.
+
+Track: ${input.track}
+Domain: ${input.trackDescription}
+Required Skills for Internship Readiness: ${input.requiredSkills.join(', ')}
+Student's Current Skills: ${currentList}
+Career Goal: ${input.careerGoal || 'Not specified'}
+Placement Assessment Score: ${input.assessmentScore != null ? input.assessmentScore + '%' : 'Not available'}
+
+Generate a comprehensive skill gap analysis and personalized learning roadmap. Return ONLY valid JSON:
+{
+  "skillGaps": [
+    {
+      "skill": "JavaScript",
+      "priority": "high",
+      "reason": "Foundation required for React and Node.js",
+      "estimatedHours": 40
+    }
+  ],
+  "masteredSkills": ["HTML", "CSS"],
+  "roadmap": [
+    {
+      "phase": 1,
+      "title": "Web Fundamentals",
+      "description": "Master the core building blocks",
+      "skills": ["HTML", "CSS"],
+      "topics": ["HTML Semantics", "CSS Layouts", "Responsive Design"],
+      "estimatedDuration": "2 weeks",
+      "difficulty": "beginner"
+    }
+  ],
+  "readinessScores": {
+    "technicalSkills": 20,
+    "practicalReadiness": 15,
+    "internshipReadiness": 10,
+    "overall": 15
+  },
+  "estimatedDuration": "4 months",
+  "nextSteps": [
+    "Start with JavaScript fundamentals immediately",
+    "Practice 2 hours daily for best results"
+  ],
+  "aiNotes": "You have a solid foundation but need to focus on programming logic."
+}
+
+Requirements:
+- skillGaps must list only skills the student is MISSING from requiredSkills
+- masteredSkills must list only skills the student ALREADY HAS from requiredSkills
+- roadmap must have 4-6 phases covering the full learning journey
+- readinessScores must be 0-100 based on skill coverage and assessment score
+- Return ONLY JSON, no markdown or explanation`;
+}
+
 // ─── Shared response parsers ───────────────────────────────────────────────────
 
 function parseJson(text: string): any {
@@ -246,6 +347,24 @@ function parseCourseMetadataResponse(text: string): GeneratedCourseMetadata {
     skillTags: Array.isArray(data.skillTags) ? data.skillTags : [],
     internshipReadinessOutcomes: Array.isArray(data.internshipReadinessOutcomes) ? data.internshipReadinessOutcomes : [],
     roadmapSuggestions: Array.isArray(data.roadmapSuggestions) ? data.roadmapSuggestions : [],
+  };
+}
+
+function parseSkillGapResponse(text: string): SkillGapAnalysisResult {
+  const data = parseJson(text);
+  return {
+    skillGaps: Array.isArray(data.skillGaps) ? data.skillGaps : [],
+    masteredSkills: Array.isArray(data.masteredSkills) ? data.masteredSkills : [],
+    roadmap: Array.isArray(data.roadmap) ? data.roadmap : [],
+    readinessScores: {
+      technicalSkills: data.readinessScores?.technicalSkills ?? 0,
+      practicalReadiness: data.readinessScores?.practicalReadiness ?? 0,
+      internshipReadiness: data.readinessScores?.internshipReadiness ?? 0,
+      overall: data.readinessScores?.overall ?? 0,
+    },
+    estimatedDuration: typeof data.estimatedDuration === 'string' ? data.estimatedDuration : '3 months',
+    nextSteps: Array.isArray(data.nextSteps) ? data.nextSteps : [],
+    aiNotes: typeof data.aiNotes === 'string' ? data.aiNotes : '',
   };
 }
 
@@ -329,6 +448,15 @@ class OpenAIProvider implements AIProvider {
     );
     return parseModuleAssistResponse(text);
   }
+
+  async generateSkillGapAnalysis(input: SkillGapInput): Promise<SkillGapAnalysisResult> {
+    const text = await this.call(
+      'You are an AI career counselor for a technology training platform. Return only valid JSON.',
+      buildSkillGapPrompt(input),
+      3000
+    );
+    return parseSkillGapResponse(text);
+  }
 }
 
 // ─── Gemini Provider ───────────────────────────────────────────────────────────
@@ -384,7 +512,63 @@ class GeminiProvider implements AIProvider {
     const text = await this.call(buildModuleAssistPrompt(input), 800);
     return parseModuleAssistResponse(text);
   }
+
+  async generateSkillGapAnalysis(input: SkillGapInput): Promise<SkillGapAnalysisResult> {
+    const text = await this.call(buildSkillGapPrompt(input), 3000);
+    return parseSkillGapResponse(text);
+  }
 }
+
+// ─── Static data for LocalTemplateProvider skill gap analysis ─────────────────
+
+const SKILL_HOURS: Record<string, number> = {
+  HTML: 15, CSS: 20, JavaScript: 60, 'React.js': 50, 'Node.js': 45, 'REST APIs': 30,
+  MongoDB: 30, Authentication: 20, 'Git/GitHub': 15, Deployment: 20,
+  'OSI Model': 15, 'TCP/IP': 20, 'IP Addressing': 20, Subnetting: 25,
+  'Router Configuration': 30, 'Switch Configuration': 30, VLANs: 25,
+  'Wireless Networking': 20, 'Cisco IOS CLI': 35, 'Network Troubleshooting': 25,
+  'Camera Types (Analog/IP)': 10, 'DVR/NVR Setup': 20, 'Cable Installation': 15,
+  'IP Camera Networking': 20, 'PoE Technology': 10, 'Video Compression': 15,
+  'ONVIF Standard': 10, 'Remote Monitoring': 15, 'Storage Planning': 15, 'Security Compliance': 10,
+  'Microcontroller Architecture': 25, 'Embedded C': 50, 'GPIO Programming': 20,
+  'PWM & ADC': 20, 'I2C Protocol': 15, 'SPI Protocol': 15, 'UART Communication': 15,
+  Arduino: 30, 'Raspberry Pi': 30, 'RTOS Basics': 35,
+};
+
+const TRACK_ROADMAPS: Record<string, RoadmapPhase[]> = {
+  'Software Development (Full Stack)': [
+    { phase: 1, title: 'Web Fundamentals', description: 'Master the core building blocks of the web', skills: ['HTML', 'CSS'], topics: ['HTML Semantics & Structure', 'CSS Layouts & Flexbox', 'Responsive Design', 'CSS Grid'], estimatedDuration: '2 weeks', difficulty: 'beginner' },
+    { phase: 2, title: 'JavaScript Core', description: 'Learn the programming language of the web', skills: ['JavaScript'], topics: ['Variables & Data Types', 'Functions & Scope', 'DOM Manipulation', 'ES6+ Features', 'Async/Await & Promises'], estimatedDuration: '4 weeks', difficulty: 'beginner' },
+    { phase: 3, title: 'Frontend Framework', description: 'Build modern, component-based user interfaces', skills: ['React.js'], topics: ['React Components', 'State & Props', 'Hooks (useState, useEffect)', 'React Router', 'State Management'], estimatedDuration: '3 weeks', difficulty: 'intermediate' },
+    { phase: 4, title: 'Backend Development', description: 'Build server-side APIs and services', skills: ['Node.js', 'REST APIs', 'Authentication'], topics: ['Node.js & Express', 'RESTful API Design', 'JWT Authentication', 'Middleware', 'Error Handling'], estimatedDuration: '3 weeks', difficulty: 'intermediate' },
+    { phase: 5, title: 'Database & Storage', description: 'Store and manage application data', skills: ['MongoDB'], topics: ['MongoDB CRUD', 'Mongoose ODM', 'Database Schema Design', 'Indexing & Queries'], estimatedDuration: '2 weeks', difficulty: 'intermediate' },
+    { phase: 6, title: 'DevOps & Deployment', description: 'Ship your applications to production', skills: ['Git/GitHub', 'Deployment'], topics: ['Git Workflow', 'GitHub Collaboration', 'CI/CD Pipelines', 'Cloud Deployment', 'Environment Configuration'], estimatedDuration: '2 weeks', difficulty: 'advanced' },
+  ],
+  'Networking (Cisco Basics)': [
+    { phase: 1, title: 'Network Fundamentals', description: 'Understand how modern networks work', skills: ['OSI Model', 'TCP/IP'], topics: ['OSI 7-Layer Model', 'TCP/IP Protocol Stack', 'Network Topologies', 'Ethernet Standards'], estimatedDuration: '2 weeks', difficulty: 'beginner' },
+    { phase: 2, title: 'IP Addressing', description: 'Master IP addressing and subnetting', skills: ['IP Addressing', 'Subnetting'], topics: ['IPv4 Addressing', 'Subnet Masks', 'CIDR Notation', 'VLSM', 'IPv6 Basics'], estimatedDuration: '3 weeks', difficulty: 'beginner' },
+    { phase: 3, title: 'Network Devices', description: 'Configure routers and switches', skills: ['Router Configuration', 'Switch Configuration'], topics: ['Cisco IOS Basics', 'Router Setup', 'Switch Port Configuration', 'DHCP & DNS', 'Static Routing'], estimatedDuration: '3 weeks', difficulty: 'intermediate' },
+    { phase: 4, title: 'Advanced Networking', description: 'Implement VLANs and wireless networks', skills: ['VLANs', 'Wireless Networking'], topics: ['VLAN Configuration', '802.1Q Trunking', 'Inter-VLAN Routing', 'Wi-Fi Standards', 'Wireless Security'], estimatedDuration: '2 weeks', difficulty: 'intermediate' },
+    { phase: 5, title: 'Cisco CLI Mastery', description: 'Advanced Cisco IOS configuration', skills: ['Cisco IOS CLI'], topics: ['Privileged EXEC Mode', 'OSPF Configuration', 'ACLs', 'NAT/PAT', 'Spanning Tree Protocol'], estimatedDuration: '3 weeks', difficulty: 'advanced' },
+    { phase: 6, title: 'Security & Troubleshooting', description: 'Secure and maintain networks', skills: ['Network Troubleshooting'], topics: ['Network Security Fundamentals', 'Troubleshooting Methodology', 'Packet Analysis', 'Network Monitoring', 'Incident Response'], estimatedDuration: '2 weeks', difficulty: 'advanced' },
+  ],
+  'CCTV & Security Systems': [
+    { phase: 1, title: 'Security Systems Basics', description: 'Understand camera types and recording systems', skills: ['Camera Types (Analog/IP)', 'DVR/NVR Setup'], topics: ['Analog vs IP Cameras', 'DVR & NVR Architecture', 'Camera Specifications', 'Recording Modes', 'System Planning'], estimatedDuration: '2 weeks', difficulty: 'beginner' },
+    { phase: 2, title: 'Physical Installation', description: 'Install cables and hardware correctly', skills: ['Cable Installation', 'PoE Technology'], topics: ['RG-59 Coaxial Cabling', 'CAT5e/6 Cabling', 'PoE Standards (IEEE 802.3af/at)', 'Cable Termination', 'Camera Mounting'], estimatedDuration: '2 weeks', difficulty: 'beginner' },
+    { phase: 3, title: 'IP Camera Systems', description: 'Configure networked camera systems', skills: ['IP Camera Networking', 'ONVIF Standard'], topics: ['IP Camera Configuration', 'ONVIF Integration', 'Network Setup for CCTV', 'Remote Access Setup', 'Bandwidth Management'], estimatedDuration: '2 weeks', difficulty: 'intermediate' },
+    { phase: 4, title: 'Video Technology', description: 'Understand video formats and monitoring', skills: ['Video Compression', 'Remote Monitoring'], topics: ['H.264 & H.265 Compression', 'Resolution & Bitrate', 'VMS Software', 'Remote Monitoring Setup', 'Mobile Access'], estimatedDuration: '2 weeks', difficulty: 'intermediate' },
+    { phase: 5, title: 'System Design & Storage', description: 'Plan and size CCTV deployments', skills: ['Storage Planning'], topics: ['Storage Calculation Formula', 'NAS & SAN Storage', 'RAID Configurations', 'Retention Policies', 'Scalable System Design'], estimatedDuration: '2 weeks', difficulty: 'intermediate' },
+    { phase: 6, title: 'Security & Compliance', description: 'Secure systems and meet legal requirements', skills: ['Security Compliance'], topics: ['Cybersecurity for CCTV', 'Privacy Laws & Compliance', 'Password Management', 'Network Segmentation', 'Audit & Maintenance'], estimatedDuration: '1 week', difficulty: 'advanced' },
+  ],
+  'Embedded Systems': [
+    { phase: 1, title: 'Hardware Fundamentals', description: 'Understand microcontroller architecture', skills: ['Microcontroller Architecture', 'GPIO Programming'], topics: ['Microcontroller Architecture', 'GPIO Concepts', 'Digital I/O', 'Pull-up/Pull-down Resistors', 'Logic Levels'], estimatedDuration: '3 weeks', difficulty: 'beginner' },
+    { phase: 2, title: 'Embedded Programming', description: 'Write efficient low-level code', skills: ['Embedded C', 'PWM & ADC'], topics: ['Embedded C Syntax', 'Memory Management', 'PWM Generation', 'ADC Reading', 'Timers & Interrupts'], estimatedDuration: '3 weeks', difficulty: 'beginner' },
+    { phase: 3, title: 'Communication Protocols', description: 'Interface with sensors and peripherals', skills: ['UART Communication', 'I2C Protocol', 'SPI Protocol'], topics: ['UART Serial Communication', 'I2C Master/Slave', 'SPI Full-Duplex', 'Sensor Interfacing', 'Protocol Debugging'], estimatedDuration: '3 weeks', difficulty: 'intermediate' },
+    { phase: 4, title: 'Development Platforms', description: 'Build projects with Arduino and Raspberry Pi', skills: ['Arduino', 'Raspberry Pi'], topics: ['Arduino IDE & Libraries', 'Raspberry Pi Setup', 'GPIO with Python', 'Sensor Projects', 'IoT Connectivity'], estimatedDuration: '3 weeks', difficulty: 'intermediate' },
+    { phase: 5, title: 'Real-Time Systems', description: 'Build reliable embedded applications', skills: ['RTOS Basics'], topics: ['RTOS Concepts', 'Task Scheduling', 'Semaphores & Mutexes', 'FreeRTOS', 'Watchdog Timers'], estimatedDuration: '3 weeks', difficulty: 'advanced' },
+    { phase: 6, title: 'IoT & Capstone Projects', description: 'Build end-to-end embedded IoT systems', skills: [], topics: ['MQTT Protocol', 'Cloud Connectivity', 'Power Optimisation', 'OTA Updates', 'End-to-End IoT Projects'], estimatedDuration: '3 weeks', difficulty: 'advanced' },
+  ],
+};
 
 // ─── Local Template Provider (last-resort fallback) ───────────────────────────
 
@@ -594,6 +778,72 @@ class LocalTemplateProvider implements AIProvider {
       estimatedTime: '2 hours',
     };
   }
+
+  async generateSkillGapAnalysis(input: SkillGapInput): Promise<SkillGapAnalysisResult> {
+    const currentSet = new Set(input.currentSkills.map((s) => s.toLowerCase().trim()));
+    const masteredSkills = input.requiredSkills.filter((s) => currentSet.has(s.toLowerCase().trim()));
+    const gapSkills = input.requiredSkills.filter((s) => !currentSet.has(s.toLowerCase().trim()));
+
+    const coverageRatio = masteredSkills.length / Math.max(input.requiredSkills.length, 1);
+    const assessmentBonus = input.assessmentScore != null ? input.assessmentScore * 0.2 : 0;
+    const technicalSkills = Math.min(100, Math.round(coverageRatio * 80 + assessmentBonus));
+    const practicalReadiness = Math.min(100, Math.round(coverageRatio * 60 + assessmentBonus * 0.5));
+    const internshipReadiness = Math.min(100, Math.round(coverageRatio * 70 + assessmentBonus * 0.3));
+    const overall = Math.round((technicalSkills + practicalReadiness + internshipReadiness) / 3);
+
+    const skillGaps: SkillGap[] = gapSkills.map((skill, idx) => ({
+      skill,
+      priority:
+        idx < Math.ceil(gapSkills.length * 0.4)
+          ? 'high'
+          : idx < Math.ceil(gapSkills.length * 0.7)
+          ? 'medium'
+          : 'low',
+      reason: `${skill} is a core requirement for the ${input.track} track`,
+      estimatedHours: SKILL_HOURS[skill] ?? 20,
+    }));
+
+    const roadmap = TRACK_ROADMAPS[input.track] ?? TRACK_ROADMAPS['Software Development (Full Stack)'];
+
+    const totalWeeks = roadmap
+      .filter((p) => p.skills.some((s) => gapSkills.includes(s)))
+      .reduce((sum, p) => {
+        const m = p.estimatedDuration.match(/(\d+)/);
+        return sum + (m ? parseInt(m[1]) : 2);
+      }, 0) || roadmap.reduce((sum, p) => {
+        const m = p.estimatedDuration.match(/(\d+)/);
+        return sum + (m ? parseInt(m[1]) : 2);
+      }, 0);
+
+    const months = Math.ceil(totalWeeks / 4);
+    const firstGap = skillGaps.find((g) => g.priority === 'high') ?? skillGaps[0];
+
+    return {
+      skillGaps,
+      masteredSkills,
+      roadmap,
+      readinessScores: { technicalSkills, practicalReadiness, internshipReadiness, overall },
+      estimatedDuration: months <= 1 ? `${totalWeeks} weeks` : `${months} month${months !== 1 ? 's' : ''}`,
+      nextSteps:
+        gapSkills.length === 0
+          ? [
+              'Pursue advanced practical projects to strengthen your portfolio',
+              'Complete all available assessments to confirm your mastery',
+              'Explore industry certifications to boost your credibility',
+              'Apply for internship positions — you are ready!',
+            ]
+          : [
+              firstGap ? `Start with ${firstGap.skill} — it is the highest priority gap` : 'Review all high-priority skill gaps',
+              'Dedicate at least 2 focused hours of practice per day',
+              'Complete the module quizzes to reinforce each concept',
+              'Revisit your roadmap weekly to update your skill self-assessment',
+            ],
+      aiNotes:
+        gapSkills.length === 0
+          ? `Excellent! You already possess all ${input.requiredSkills.length} required skills for the ${input.track} track. Focus on building real-world projects and refining your portfolio to maximise internship readiness.`
+          : `You have mastered ${masteredSkills.length} of ${input.requiredSkills.length} required skills (${Math.round(coverageRatio * 100)}% coverage). Prioritise the ${skillGaps.filter((g) => g.priority === 'high').length} high-priority gaps to make the fastest progress toward internship readiness.`,
+    };
+  }
 }
 
 // ─── Logger ───────────────────────────────────────────────────────────────────
@@ -688,6 +938,10 @@ export class AIService {
 
   async generateModuleAssist(input: ModuleAssistInput): Promise<GeneratedModuleAssist> {
     return this.withFallback('generateModuleAssist', (p) => p.generateModuleAssist(input));
+  }
+
+  async generateSkillGapAnalysis(input: SkillGapInput): Promise<SkillGapAnalysisResult> {
+    return this.withFallback('generateSkillGapAnalysis', (p) => p.generateSkillGapAnalysis(input));
   }
 
   getProviderNames(): string[] {

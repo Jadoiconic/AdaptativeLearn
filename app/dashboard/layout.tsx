@@ -193,6 +193,25 @@ export default function DashboardLayout({
                   <span className="font-medium">Progress</span>
                 </Link>
               )}
+
+              {session?.user?.role === 'student' && (
+                <Link
+                  href="/dashboard/ai-engine"
+                  className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                    isActiveRoute('/dashboard/ai-engine')
+                      ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 transition-colors ${
+                    isActiveRoute('/dashboard/ai-engine') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  <span className="font-medium">AI Engine</span>
+                  <span className="ml-auto px-1.5 py-0.5 bg-blue-600 text-white text-xs rounded-full leading-tight">AI</span>
+                </Link>
+              )}
               
               <Link
                 href="/dashboard/profile"
