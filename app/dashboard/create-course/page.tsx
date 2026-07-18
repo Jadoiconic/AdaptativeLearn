@@ -18,6 +18,59 @@ const DIFFICULTY_LEVELS = [
   { value: 'advanced', label: 'Advanced' },
 ];
 
+type ArrayField = 'skillsCovered' | 'learningObjectives' | 'internshipReadinessOutcomes' | 'modules';
+
+function ArraySection({
+  items,
+  label,
+  placeholder,
+  onChange,
+  onAdd,
+  onRemove,
+}: {
+  items: string[];
+  label: string;
+  placeholder: (i: number) => string;
+  onChange: (index: number, value: string) => void;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {items.map((item, index) => (
+        <div key={index} className="flex gap-2">
+          <input
+            type="text"
+            value={item}
+            onChange={(e) => onChange(index, e.target.value)}
+            className="flex-1 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder={placeholder(index)}
+          />
+          {items.length > 1 && (
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              aria-label="Remove"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors text-sm"
+      >
+        + Add {label}
+      </button>
+    </div>
+  );
+}
+
 export default function CreateCoursePage() {
   useSession();
   const [formData, setFormData] = useState({
@@ -49,8 +102,6 @@ export default function CreateCoursePage() {
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, aiQuizEnabled: e.target.checked }));
   };
-
-  type ArrayField = 'skillsCovered' | 'learningObjectives' | 'internshipReadinessOutcomes' | 'modules';
 
   const handleArrayChange = (field: ArrayField, index: number, value: string) => {
     setFormData(prev => ({
@@ -148,49 +199,6 @@ export default function CreateCoursePage() {
   };
 
   const isLoading = submitting || uploadingThumbnail;
-
-  const ArraySection = ({
-    field,
-    label,
-    placeholder,
-  }: {
-    field: ArrayField;
-    label: string;
-    placeholder: (i: number) => string;
-  }) => (
-    <div className="space-y-3">
-      {formData[field].map((item, index) => (
-        <div key={index} className="flex gap-2">
-          <input
-            type="text"
-            value={item}
-            onChange={(e) => handleArrayChange(field, index, e.target.value)}
-            className="flex-1 px-4 py-2 text-slate-700 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder={placeholder(index)}
-          />
-          {formData[field].length > 1 && (
-            <button
-              type="button"
-              onClick={() => removeArrayItem(field, index)}
-              className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              aria-label="Remove"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          )}
-        </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => addArrayItem(field)}
-        className="px-4 py-2 border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg transition-colors text-sm"
-      >
-        + Add {label}
-      </button>
-    </div>
-  );
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -354,9 +362,12 @@ export default function CreateCoursePage() {
             <CardContent>
               <p className="text-sm text-slate-500 mb-3">List the specific skills trainees will gain from this course.</p>
               <ArraySection
-                field="skillsCovered"
+                items={formData.skillsCovered}
                 label="Skill"
                 placeholder={(i) => `Skill ${i + 1} (e.g., IP Subnetting)`}
+                onChange={(index, value) => handleArrayChange('skillsCovered', index, value)}
+                onAdd={() => addArrayItem('skillsCovered')}
+                onRemove={(index) => removeArrayItem('skillsCovered', index)}
               />
             </CardContent>
           </Card>
@@ -369,9 +380,12 @@ export default function CreateCoursePage() {
             <CardContent>
               <p className="text-sm text-slate-500 mb-3">What will trainees be able to do after completing this course?</p>
               <ArraySection
-                field="learningObjectives"
+                items={formData.learningObjectives}
                 label="Objective"
                 placeholder={(i) => `Objective ${i + 1}`}
+                onChange={(index, value) => handleArrayChange('learningObjectives', index, value)}
+                onAdd={() => addArrayItem('learningObjectives')}
+                onRemove={(index) => removeArrayItem('learningObjectives', index)}
               />
             </CardContent>
           </Card>
@@ -384,9 +398,12 @@ export default function CreateCoursePage() {
             <CardContent>
               <p className="text-sm text-slate-500 mb-3">How does this course prepare trainees for real internship and employment environments?</p>
               <ArraySection
-                field="internshipReadinessOutcomes"
+                items={formData.internshipReadinessOutcomes}
                 label="Outcome"
                 placeholder={(i) => `Readiness outcome ${i + 1} (e.g., Can configure a Cisco switch in a live environment)`}
+                onChange={(index, value) => handleArrayChange('internshipReadinessOutcomes', index, value)}
+                onAdd={() => addArrayItem('internshipReadinessOutcomes')}
+                onRemove={(index) => removeArrayItem('internshipReadinessOutcomes', index)}
               />
             </CardContent>
           </Card>
@@ -399,9 +416,12 @@ export default function CreateCoursePage() {
             <CardContent>
               <p className="text-sm text-slate-500 mb-3">Define the high-level sections of this course. You can add detailed content to each module after creation.</p>
               <ArraySection
-                field="modules"
+                items={formData.modules}
                 label="Module"
                 placeholder={(i) => `Module ${i + 1} title (e.g., Introduction to TCP/IP)`}
+                onChange={(index, value) => handleArrayChange('modules', index, value)}
+                onAdd={() => addArrayItem('modules')}
+                onRemove={(index) => removeArrayItem('modules', index)}
               />
             </CardContent>
           </Card>
