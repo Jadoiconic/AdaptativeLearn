@@ -1,19 +1,45 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { HumanButton } from './human-button';
 import { cn } from '@/lib/utils';
+import { PLAN_CONFIG, PlanKey } from '@/lib/plans';
 
 interface HumanNavProps {
   variant?: 'landing' | 'dashboard';
 }
 
+function usePlanLabel(enabled: boolean) {
+  const [plan, setPlan] = useState<PlanKey | null | undefined>(undefined);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    fetch('/api/subscription')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        setPlan(data.success && data.subscription ? data.subscription.plan : null);
+      })
+      .catch(() => {
+        if (!cancelled) setPlan(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+
+  if (!enabled || plan === undefined) return null;
+  return plan ? PLAN_CONFIG[plan].name : 'Free';
+}
+
 export function HumanNav({ variant = 'landing' }: HumanNavProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const planLabel = usePlanLabel(variant === 'dashboard' && session?.user?.role === 'student');
 
   const handleSignOut = async () => {
     try {
@@ -79,8 +105,21 @@ export function HumanNav({ variant = 'landing' }: HumanNavProps) {
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200 shadow-sm">
                   {session?.user?.role}
                 </span>
+                {planLabel && (
+                  <Link
+                    href="/dashboard/billing"
+                    className={cn(
+                      'inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border shadow-sm transition-colors',
+                      planLabel === 'Free'
+                        ? 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                        : 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-200'
+                    )}
+                  >
+                    {planLabel}
+                  </Link>
+                )}
               </div>
-              <HumanButton 
+              <HumanButton
                 variant="outline" 
                 size="sm"
                 onClick={handleSignOut}
