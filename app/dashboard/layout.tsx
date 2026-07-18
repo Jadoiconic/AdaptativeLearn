@@ -244,7 +244,25 @@ export default function DashboardLayout({
                 </svg>
                 <span className="font-medium">Profile</span>
               </Link>
-              
+
+              {session?.user?.role === 'student' && (
+                <Link
+                  href="/dashboard/billing"
+                  className={`group flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                    isActiveRoute('/dashboard/billing')
+                      ? 'bg-blue-50 text-blue-800 shadow-sm border border-blue-200 hover:bg-blue-100 hover:shadow-md'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 transition-colors ${
+                    isActiveRoute('/dashboard/billing') ? 'text-blue-700' : 'text-gray-500 group-hover:text-gray-700'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <span className="font-medium">Billing</span>
+                </Link>
+              )}
+
               {session.user?.role === 'admin' && (
                 <>
                   <div className="pt-4 mt-4 border-t border-gray-200">

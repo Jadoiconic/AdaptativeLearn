@@ -18,6 +18,7 @@ export interface IModule extends Document {
   assessmentId?: mongoose.Types.ObjectId;
   createdBy?: mongoose.Types.ObjectId;
   isPublished: boolean;
+  isFreePreview: boolean;
 }
 
 const ModuleSchema = new Schema<IModule>({
@@ -94,6 +95,10 @@ const ModuleSchema = new Schema<IModule>({
     ref: 'User',
   },
   isPublished: {
+    type: Boolean,
+    default: false,
+  },
+  isFreePreview: {
     type: Boolean,
     default: false,
   },

@@ -62,7 +62,7 @@ export async function GET(
         ? searchParams.get('instructorId')!
         : session.user.id;
 
-    const student = await UserModel.findById(studentId)
+    const student = await UserModel.findOne({ _id: studentId, role: 'student' })
       .select('name email avatar skills readinessScore placementAssessment createdAt')
       .lean();
     if (!student) {

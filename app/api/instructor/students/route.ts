@@ -187,7 +187,10 @@ export async function GET(request: NextRequest) {
     );
 
     // Query 5: student user documents
-    const studentDocs = await UserModel.find({ _id: { $in: studentObjectIds } })
+    const studentDocs = await UserModel.find({
+      _id: { $in: studentObjectIds },
+      role: 'student',
+    })
       .select('name email avatar readinessScore')
       .lean();
     const studentMap = new Map(studentDocs.map((s) => [s._id.toString(), s]));

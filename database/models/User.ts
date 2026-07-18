@@ -61,6 +61,7 @@ export interface IUser extends Document {
   readinessScore?: number;
   recommendedCourses?: mongoose.Types.ObjectId[];
   generatedRoadmapId?: mongoose.Types.ObjectId;
+  stripeCustomerId?: string;
   createdAt?: Date;
   updatedAt?: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -141,6 +142,7 @@ const UserSchema = new Schema<IUser, IUserModel>(
     readinessScore: { type: Number, min: 0, max: 100 },
     recommendedCourses: [{ type: Schema.Types.ObjectId, ref: 'Course' }],
     generatedRoadmapId: { type: Schema.Types.ObjectId, ref: 'Roadmap' },
+    stripeCustomerId: { type: String, index: true },
   },
   { timestamps: true }
 );

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import PdfViewer from '@/components/pdf-viewer';
+import { PremiumLock } from '@/components/PremiumLock';
 
 interface Module {
   _id: string;
@@ -21,6 +22,8 @@ interface Module {
   fileUrl?: string;
   assessmentId?: string;
   isPublished: boolean;
+  isFreePreview?: boolean;
+  locked?: boolean;
 }
 
 interface Course {
@@ -471,6 +474,7 @@ export default function CourseDetailPage() {
                             }`}>
                               {module.isPublished ? 'Published' : 'Draft'}
                             </span>
+                            {module.locked && <PremiumLock variant="badge" />}
                             {moduleProgress[module._id] && (
                               <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                 moduleProgress[module._id] === 'completed' 
@@ -513,7 +517,7 @@ export default function CourseDetailPage() {
                             )}
                           </div>
                           {/* Video thumbnail preview in card */}
-                          {module.videoUrl && selectedModule?._id === module._id && (
+                          {module.videoUrl && !module.locked && selectedModule?._id === module._id && (
                             <div className="mt-3 relative rounded-lg overflow-hidden bg-black" style={{maxHeight: '140px'}}>
                               <img
                                 src={getCloudinaryThumbnail(module.videoUrl)}
@@ -546,7 +550,7 @@ export default function CourseDetailPage() {
             <Card className="border-slate-200/60 mt-6">
               <CardHeader className="flex justify-between items-center">
                 <CardTitle className="text-slate-900">{selectedModule.title}</CardTitle>
-                {moduleProgress[selectedModule._id] !== 'completed' && (
+                {!selectedModule.locked && moduleProgress[selectedModule._id] !== 'completed' && (
                   <Button
                     onClick={() => handleMarkComplete(selectedModule._id)}
                     className="bg-green-600 hover:bg-green-700"
@@ -556,10 +560,14 @@ export default function CourseDetailPage() {
                 )}
               </CardHeader>
               <CardContent className="space-y-4">
+                {selectedModule.locked ? (
+                  <PremiumLock variant="panel" />
+                ) : (
+                <>
                 <div className="prose max-w-none">
                   <p className="text-slate-700">{selectedModule.content}</p>
                 </div>
-                
+
                 {selectedModule.videoUrl && (
                   <div>
                     <h3 className="text-sm font-semibold text-slate-900 mb-3 flex items-center gap-2">
@@ -619,6 +627,8 @@ export default function CourseDetailPage() {
                     </h3>
                     <PdfViewer url={selectedModule.fileUrl} height={560} />
                   </div>
+                )}
+                </>
                 )}
               </CardContent>
             </Card>
