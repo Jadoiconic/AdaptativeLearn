@@ -25,6 +25,7 @@ interface Module {
   videoUrl?: string;
   fileUrl?: string;
   isPublished: boolean;
+  isFreePreview: boolean;
 }
 
 interface Course {
@@ -68,6 +69,7 @@ const initialForm = {
   fileUrl: '',
   order: 1,
   isPublished: false,
+  isFreePreview: false,
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -238,6 +240,7 @@ export default function ModulesPage() {
       fileUrl: mod.fileUrl || '',
       order: mod.order,
       isPublished: mod.isPublished,
+      isFreePreview: mod.isFreePreview || false,
     });
     setEditingModule(mod);
     setFormTab('basic');
@@ -356,6 +359,7 @@ export default function ModulesPage() {
         videoUrl: formData.videoUrl,
         fileUrl: formData.fileUrl,
         isPublished: publish !== undefined ? publish : formData.isPublished,
+        isFreePreview: formData.isFreePreview,
       };
 
       const url = '/api/modules';
@@ -412,6 +416,7 @@ export default function ModulesPage() {
         videoUrl: mod.videoUrl || '',
         fileUrl: mod.fileUrl || '',
         isPublished: false,
+        isFreePreview: mod.isFreePreview || false,
       }),
     });
     if (res.ok) fetchModules(selectedCourse);
@@ -975,6 +980,26 @@ export default function ModulesPage() {
                   </div>
                 </div>
 
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="isFreePreview"
+                      checked={formData.isFreePreview}
+                      onChange={e => setField('isFreePreview', e.target.checked)}
+                      className="w-4 h-4 mt-0.5 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                    />
+                    <div>
+                      <label htmlFor="isFreePreview" className="text-sm font-semibold text-amber-900 cursor-pointer">
+                        🔓 Free Preview
+                      </label>
+                      <p className="text-xs text-amber-700 mt-1">
+                        Visible to everyone, even without a subscription. Use sparingly — free previews are visible to all visitors.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <p className="text-sm font-semibold text-slate-700 mb-3">Publishing</p>
                   <div className="flex gap-3">
@@ -1083,6 +1108,11 @@ export default function ModulesPage() {
                         <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${mod.isPublished ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
                           {mod.isPublished ? 'Published' : 'Draft'}
                         </span>
+                        {mod.isFreePreview && (
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
+                            🔓 Free Preview
+                          </span>
+                        )}
                         <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
                           {typeLabel(mod.type)}
                         </span>

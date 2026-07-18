@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import connectDB from '@/database/connection';
 import { ModuleModel, CourseModel, UserModel, QuizModel } from '@/database/models';
 import { aiService } from '@/lib/ai-service';
+import { hasActiveSubscription, canAccessModuleContent } from '@/lib/subscription';
 
 // Background function to trigger quiz generation
 async function triggerQuizGeneration(moduleId: string, module: any, userId: string) {
@@ -79,28 +80,53 @@ async function triggerQuizGeneration(moduleId: string, module: any, userId: stri
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
-    
+    const session = await getServerSession(authOptions);
+
     const { searchParams } = new URL(request.url);
     const courseId = searchParams.get('courseId');
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '50');
-    
+
     const skip = (page - 1) * limit;
-    
+
     const filter: any = {};
     if (courseId) filter.courseId = courseId;
-    
+
     const modules = await ModuleModel.find(filter)
-      .populate('courseId', 'title category')
+      .populate('courseId', 'title category instructorId')
       .sort({ order: 1, createdAt: -1 })
       .skip(skip)
       .limit(limit);
-    
+
     const total = await ModuleModel.countDocuments(filter);
-    
+
+    const isSubscribed = session ? await hasActiveSubscription(session.user.id) : false;
+
+    const sanitizedModules = modules.map((mod) => {
+      const course = mod.courseId as any;
+      const courseInstructorId = course?.instructorId?.toString();
+      const unlocked = canAccessModuleContent(
+        mod.isFreePreview,
+        courseInstructorId,
+        session,
+        isSubscribed
+      );
+
+      const obj = mod.toObject();
+      if (!unlocked) {
+        obj.content = '';
+        obj.videoUrl = '';
+        obj.fileUrl = '';
+        obj.locked = true;
+      } else {
+        obj.locked = false;
+      }
+      return obj;
+    });
+
     return NextResponse.json({
       success: true,
-      modules,
+      modules: sanitizedModules,
       pagination: {
         page,
         limit,
@@ -167,6 +193,7 @@ export async function POST(request: NextRequest) {
       videoUrl,
       fileUrl,
       isPublished = false,
+      isFreePreview = false,
     } = await request.json();
 
     if (!courseId || !title || !description || !content) {
@@ -216,6 +243,7 @@ export async function POST(request: NextRequest) {
       videoUrl,
       fileUrl,
       isPublished,
+      isFreePreview,
       createdBy: session.user.id,
     });
     
@@ -307,6 +335,7 @@ export async function PUT(request: NextRequest) {
       videoUrl,
       fileUrl,
       isPublished,
+      isFreePreview,
     } = await request.json();
 
     if (!moduleId) {
@@ -372,6 +401,7 @@ export async function PUT(request: NextRequest) {
         videoUrl: videoUrl !== undefined ? videoUrl : module.videoUrl,
         fileUrl: fileUrl !== undefined ? fileUrl : module.fileUrl,
         isPublished: isPublished !== undefined ? isPublished : module.isPublished,
+        isFreePreview: isFreePreview !== undefined ? isFreePreview : module.isFreePreview,
       },
       { new: true }
     ).populate('courseId', 'title category');

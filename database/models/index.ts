@@ -13,6 +13,8 @@ import SkillGapAnalysisModel from './SkillGapAnalysis';
 import ResourceModel from './Resource';
 import CommunityContributionModel from './CommunityContribution';
 import ExpertReviewModel from './ExpertReview';
+import SubscriptionModel from './Subscription';
+import PaymentModel from './Payment';
 
 export {
   UserModel,
@@ -30,6 +32,8 @@ export {
   ResourceModel,
   CommunityContributionModel,
   ExpertReviewModel,
+  SubscriptionModel,
+  PaymentModel,
 };
 
 export default {
@@ -48,4 +52,6 @@ export default {
   Resource: ResourceModel,
   CommunityContribution: CommunityContributionModel,
   ExpertReview: ExpertReviewModel,
+  Subscription: SubscriptionModel,
+  Payment: PaymentModel,
 };

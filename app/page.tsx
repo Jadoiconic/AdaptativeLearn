@@ -175,6 +175,7 @@ export default function Home() {
             <a href="#roadmaps" className="hover:text-zinc-900 transition-colors">Roadmaps</a>
             <a href="#ai" className="hover:text-zinc-900 transition-colors">AI Features</a>
             <a href="#readiness" className="hover:text-zinc-900 transition-colors">Internship</a>
+            <Link href="/pricing" className="hover:text-zinc-900 transition-colors">Pricing</Link>
           </nav>
 
           <div className="flex items-center gap-2">
